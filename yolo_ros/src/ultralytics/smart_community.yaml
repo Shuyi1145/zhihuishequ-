@@ -1,0 +1,8 @@
+train: /home/GGB/catkin_ws/src/yolo_ros/src/ultralytics/datasets/train/images  # train images (relative to 'path') 128 images
+val: /home/GGB/catkin_ws/src/yolo_ros/src/ultralytics/datasets/val/images  # val images (relative to 'path') 128 images
+test: /home/GGB/catkin_ws/src/yolo_ros/src/ultralytics/datasets/test/images  # test images (optional)
+
+nc: 2
+ 
+# Classes
+names: ['community','non-community']
