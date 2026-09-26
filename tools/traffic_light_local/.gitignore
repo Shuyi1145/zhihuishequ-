@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+检测输出/
+*.zip
+build/
+devel/
+install/
+logs/

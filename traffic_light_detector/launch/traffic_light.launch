@@ -1,0 +1,12 @@
+<launch>
+  <arg name="image_topic" default="/image_raw"/>
+  <arg name="roi_bottom" default="0.45"/>
+  <node pkg="traffic_light_detector" type="traffic_light_node.py" name="traffic_light" output="screen">
+    <param name="image_topic" value="$(arg image_topic)"/>
+    <param name="roi_bottom" value="$(arg roi_bottom)" type="double"/>
+    <param name="detection_rate" value="5.0"/>
+    <param name="image_timeout" value="1.0"/>
+    <param name="green_hold" value="0.5"/>
+    <param name="green_min_frames" value="3"/>
+  </node>
+</launch>
