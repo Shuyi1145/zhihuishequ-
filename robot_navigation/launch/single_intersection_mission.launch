@@ -1,0 +1,28 @@
+<launch>
+  <!-- 第一处路口实测任务点，地图坐标系。 -->
+  <arg name="stop_x" default="1.5856393575668335"/>
+  <arg name="stop_y" default="0.5012828707695007"/>
+  <arg name="stop_qz" default="-0.017359118678415685"/>
+  <arg name="stop_qw" default="0.9998493191469946"/>
+
+  <arg name="cross_x" default="2.9678547382354736"/>
+  <arg name="cross_y" default="0.43797147274017334"/>
+  <arg name="cross_qz" default="-0.004938376552505628"/>
+  <arg name="cross_qw" default="0.9999878061441678"/>
+
+  <node pkg="robot_navigation" type="single_intersection_mission.py"
+        name="single_intersection_mission" output="screen" required="true">
+    <param name="stop_x" value="$(arg stop_x)"/>
+    <param name="stop_y" value="$(arg stop_y)"/>
+    <param name="stop_qz" value="$(arg stop_qz)"/>
+    <param name="stop_qw" value="$(arg stop_qw)"/>
+    <param name="cross_x" value="$(arg cross_x)"/>
+    <param name="cross_y" value="$(arg cross_y)"/>
+    <param name="cross_qz" value="$(arg cross_qz)"/>
+    <param name="cross_qw" value="$(arg cross_qw)"/>
+    <param name="goal_timeout" value="60.0"/>
+    <param name="green_timeout" value="120.0"/>
+    <param name="poll_period" value="0.2"/>
+    <param name="stop_settle_time" value="1.0"/>
+  </node>
+</launch>
