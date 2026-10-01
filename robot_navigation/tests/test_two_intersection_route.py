@@ -168,7 +168,7 @@ class RouteTest(unittest.TestCase):
         self.assertTrue(all(speed > 0 for speed in commands[:-1]))
         self.assertAlmostEqual(mission.area_b_pose['y'], 1.650)
 
-    def test_launch_uses_latest_measured_waypoints(self):
+    def test_launch_uses_current_route_waypoints(self):
         root = ET.parse(LAUNCH).getroot()
         args = {item.attrib['name']: item.attrib['default']
                 for item in root.findall('arg')}
@@ -176,7 +176,7 @@ class RouteTest(unittest.TestCase):
         expected_poses = {
             'first_corner': (3.824002265930176, 0.5524806976318359,
                              0.7105965273343292, 0.7035997266488895),
-            'next_corner': (3.624973773956299, 1.540183663368225,
+            'next_corner': (3.566, 1.579,
                             -0.9999627453743581, 0.008631793751969744),
             'area_middle': (2.900, 1.700, -0.701, 0.713),
             'second_corner': (2.0103862285614014, 1.41770339012146,
@@ -191,6 +191,21 @@ class RouteTest(unittest.TestCase):
                 self.assertAlmostEqual(float(args[name + '_' + part]), expected)
         self.assertFalse(any(name.startswith(('turn_after_first_', 'area_a_',
                                               'area_b_')) for name in args))
+
+    def test_next_corner_shift_is_forward_and_left_of_approach(self):
+        first = (3.824002265930176, 0.5524806976318359)
+        original = (3.624973773956299, 1.540183663368225)
+        adjusted = (3.566, 1.579)
+        dx = original[0] - first[0]
+        dy = original[1] - first[1]
+        distance = math.hypot(dx, dy)
+        forward = (dx / distance, dy / distance)
+        left = (-forward[1], forward[0])
+        shift = (adjusted[0] - original[0], adjusted[1] - original[1])
+        self.assertAlmostEqual(sum(a * b for a, b in zip(shift, forward)),
+                               0.05, delta=0.001)
+        self.assertAlmostEqual(sum(a * b for a, b in zip(shift, left)),
+                               0.05, delta=0.001)
 
 
 if __name__ == '__main__':
