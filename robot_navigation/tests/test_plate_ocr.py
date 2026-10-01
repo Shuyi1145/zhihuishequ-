@@ -25,13 +25,18 @@ def load_function(name, class_name=None, namespace=None):
 
 
 class PlateOcrTest(unittest.TestCase):
-    def test_current_baidu_response_is_a_list(self):
+    def test_baidu_response_list_and_observed_object(self):
         first_plate = load_function('first_plate')
         self.assertEqual(first_plate({'words_result': [
             {'number': '测试12345', 'vertexes_location': [{'x': 1, 'y': 2}]}]}),
             ('测试12345', [{'x': 1, 'y': 2}]))
         self.assertIsNone(first_plate({'words_result': []}))
         self.assertIsNone(first_plate({'error_code': 110}))
+        self.assertEqual(first_plate({'words_result': {
+            'number': '冀DSX888',
+            'vertexes_location': [{'x': 214, 'y': 193}],
+            'color': 'blue',
+        }}), ('冀DSX888', [{'x': 214, 'y': 193}]))
 
     def test_token_is_query_parameter_and_image_is_form_body(self):
         calls = []

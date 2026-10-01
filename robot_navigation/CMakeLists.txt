@@ -165,7 +165,6 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/single_intersection_mission.py
   scripts/detect_plate.py
-  scripts/save_raw_image.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -58,7 +58,7 @@ roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=
 
 ## 车牌原图与百度 OCR 准备
 
-车牌阶段先在第二处路口后的停车位置保存一张 `/image_raw` 原图，用于百度车牌识别在线调试；当前两路口任务仍到此停车，不自动调用 OCR。采图命令、私有密钥文件放置方法和后续手动启动 OCR 节点见[车牌采图与百度 OCR 说明](docs/车牌采图与百度OCR.md)。API Key 与 Secret Key 不在 Git 仓库中。
+车牌图片已在百度网页在线调试成功，返回 `冀DSX888`。当前两路口任务仍在第二处路口后的车牌观察位停车，不自动调用 OCR。私有密钥文件放置方法和后续手动启动 OCR 节点见[百度车牌 OCR 配置与验证](docs/车牌采图与百度OCR.md)。API Key 与 Secret Key 不在 Git 仓库中。
 
 ## 当前调试路线：通过第二处路口后面向车牌停车
 
