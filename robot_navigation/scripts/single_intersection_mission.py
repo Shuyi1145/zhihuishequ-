@@ -11,6 +11,7 @@ from actionlib_msgs.msg import GoalStatus
 from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 import rospy
+import tf2_ros
 from robot_navigation.srv import detect
 from std_srvs.srv import Trigger
 
@@ -28,6 +29,7 @@ class SingleIntersectionMission:
         self.green_timeout = float(rospy.get_param('~green_timeout', 120.0))
         self.poll_period = float(rospy.get_param('~poll_period', 0.2))
         self.stop_settle_time = float(rospy.get_param('~stop_settle_time', 1.0))
+        self.turn_prep_distance = float(rospy.get_param('~turn_prep_distance', 0.05))
         self.stop_pose = self.read_pose('stop')
         self.cross_pose = self.read_pose('cross')
         self.two_area_enabled = rospy.get_param('~two_area_enabled', False)
@@ -52,6 +54,9 @@ class SingleIntersectionMission:
 
         self.velocity = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.client = actionlib.SimpleActionClient(self.move_base_name, MoveBaseAction)
+        if self.two_intersection_enabled:
+            self.tf_buffer = tf2_ros.Buffer()
+            self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         rospy.on_shutdown(self.stop_robot)
 
     @staticmethod
@@ -77,7 +82,8 @@ class SingleIntersectionMission:
                 ('goal_timeout', self.goal_timeout),
                 ('green_timeout', self.green_timeout),
                 ('poll_period', self.poll_period),
-                ('stop_settle_time', self.stop_settle_time)):
+                ('stop_settle_time', self.stop_settle_time),
+                ('turn_prep_distance', self.turn_prep_distance)):
             if value <= 0:
                 raise MissionError('{} must be positive'.format(name))
         poses = [('stop', self.stop_pose), ('cross', self.cross_pose)]
@@ -227,6 +233,60 @@ class SingleIntersectionMission:
                       area_name, counts['community'], counts['non-community'])
         return counts
 
+    def current_map_pose(self):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                'map', 'base_footprint', rospy.Time(0), rospy.Duration(1.0))
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException) as exc:
+            raise MissionError('无法读取转向前车体位置: {}'.format(exc)) from exc
+        position = transform.transform.translation
+        rotation = transform.transform.rotation
+        pose = {'x': position.x, 'y': position.y,
+                'z': rotation.z, 'w': rotation.w}
+        if (not all(math.isfinite(value) for value in pose.values())
+                or math.hypot(pose['z'], pose['w']) < 1e-6):
+            raise MissionError('转向前车体 TF 位姿无效')
+        return pose
+
+    @staticmethod
+    def forward_pose(pose, distance):
+        yaw = 2.0 * math.atan2(pose['z'], pose['w'])
+        return {'x': pose['x'] + distance * math.cos(yaw),
+                'y': pose['y'] + distance * math.sin(yaw),
+                'z': pose['z'], 'w': pose['w']}
+
+    def advance_before_turn(self):
+        """Move a measured short distance; move_base's 15 cm tolerance would skip it."""
+        start = self.current_map_pose()
+        target = self.forward_pose(start, self.turn_prep_distance)
+        heading = 2.0 * math.atan2(start['z'], start['w'])
+        rospy.loginfo('A 识别后向前 %.3f m，转向准备点: x=%.3f, y=%.3f',
+                      self.turn_prep_distance, target['x'], target['y'])
+        deadline = time.monotonic() + 6.0
+        try:
+            while not rospy.is_shutdown() and time.monotonic() < deadline:
+                actual = self.current_map_pose()
+                dx = actual['x'] - start['x']
+                dy = actual['y'] - start['y']
+                forward = dx * math.cos(heading) + dy * math.sin(heading)
+                sideways = abs(-dx * math.sin(heading) + dy * math.cos(heading))
+                if sideways > 0.03 or forward < -0.01:
+                    raise MissionError('转向准备点前进时发生明显偏移')
+                if forward >= self.turn_prep_distance - 0.005:
+                    self.area_b_pose = self.opposite_pose(self.area_middle_pose)
+                    self.area_b_pose['x'] = actual['x']
+                    self.area_b_pose['y'] = actual['y']
+                    rospy.loginfo('已到转向准备点: x=%.3f, y=%.3f', actual['x'], actual['y'])
+                    return
+                command = Twist()
+                command.linear.x = min(0.05, max(0.02, 0.8 * (self.turn_prep_distance - forward)))
+                self.velocity.publish(command)
+                time.sleep(0.05)
+            raise MissionError('转向准备点前进超时或 ROS 已关闭')
+        finally:
+            self.velocity.publish(Twist())
+
     def run_two_intersections(self):
         for label, pose in (
                 ('第一处路口后拐点', self.first_corner_pose),
@@ -238,6 +298,8 @@ class SingleIntersectionMission:
         area_a_counts = self.recognize_people('A 街区', 1)
         self.hold_stopped(self.stop_settle_time)
 
+        self.advance_before_turn()
+        self.hold_stopped(self.stop_settle_time)
         self.navigate('原地转向 B 街区', self.area_b_pose)
         self.hold_stopped(self.stop_settle_time)
         area_b_counts = self.recognize_people('B 街区', 2)

@@ -22,6 +22,7 @@
   <arg name="area_middle_y" default="1.700"/>
   <arg name="area_middle_qz" default="-0.701"/>
   <arg name="area_middle_qw" default="0.713"/>
+  <arg name="turn_prep_distance" default="0.05"/>
   <arg name="second_corner_x" default="2.0103862285614014"/>
   <arg name="second_corner_y" default="1.41770339012146"/>
   <arg name="second_corner_qz" default="0.7093058728328143"/>
@@ -42,6 +43,7 @@
     <param name="green_timeout" value="120.0"/>
     <param name="poll_period" value="0.2"/>
     <param name="stop_settle_time" value="1.0"/>
+    <param name="turn_prep_distance" value="$(arg turn_prep_distance)"/>
     <param name="stop_x" value="$(arg stop_x)"/>
     <param name="stop_y" value="$(arg stop_y)"/>
     <param name="stop_qz" value="$(arg stop_qz)"/>

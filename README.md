@@ -58,7 +58,7 @@ roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=
 
 ## 当前调试路线：通过第二处路口后面向车牌停车
 
-`robot_navigation/launch/two_intersection_mission.launch` 使用最新[路径点记录](docs/路径点.md)中的六个位姿。第一处停车与过路口点沿用已测单路口任务。其余顺序为：第一处路口后拐点 → 下一拐点 → 街区中间面向 A 识别 → 原地转向 180° 面向 B 识别 → 第二处路口前拐点 → 停止线前等绿灯 → 第二处路口后面向车牌停车。A/B 各调用一次 `/recognize_person`；两处灯调用 `/traffic_light/reset` 和 `/traffic_light/check`。本阶段不执行车牌识别或返程。原来的 `single_intersection_mission.launch` 不受影响。
+`robot_navigation/launch/two_intersection_mission.launch` 使用最新[路径点记录](docs/路径点.md)中的路线。第一处停车与过路口点沿用已测单路口任务。其余顺序为：第一处路口后拐点 → 下一拐点 → 街区中间面向 A 识别 → 沿实际车头方向前进约 5 厘米 → 在新位置转向 180° 面向 B 识别 → 第二处路口前拐点 → 停止线前等绿灯 → 第二处路口后面向车牌停车。A/B 各调用一次 `/recognize_person`；两处灯调用 `/traffic_light/reset` 和 `/traffic_light/check`。本阶段不执行车牌识别或返程。原来的 `single_intersection_mission.launch` 不受影响。
 
 在 Gazebo、`navigation.launch simulation:=true`、红绿灯节点和 YOLO/人物识别服务运行后，启动：
 
@@ -67,7 +67,7 @@ source ~/smart_ws/devel/setup.bash
 roslaunch robot_navigation two_intersection_mission.launch
 ```
 
-用户确认这些点属于同一地图与定位标定，第二处停车点的车身位于停止线前。**2026-10-02 用户反馈整段任务已在虚拟机跑通，并提供了面向 A 时的 `map → base_footprint` 基准位姿 `(3.100, 1.600)`。** 随后按示意图向南约 0.10 米、向右约 0.20 米手动试调，A/B 共用目标现为 `(2.900, 1.700)`，A 朝向仍为 `qz=-0.701, qw=0.713`，B 原地反向；试调效果待虚拟机复测。当前 DWA 位置容差为 0.2 米，需用停稳后的实际 TF 和相机画面验收。另需复核第二次等待时识别的是第二组灯、红灯期间车身不越线，以及全程不压车道线。人物服务返回单帧计数，尚不能直接作为全街区去重人数。任一导航、识别或等灯失败会终止任务并发出停车指令。
+用户确认这些点属于同一地图与定位标定，第二处停车点的车身位于停止线前。**2026-10-02 用户确认试调后的 A 识别结果与朝向良好，但在 B 转向时出现往返抖动。** A 目标仍为 `(2.900, 1.700)`，朝向 `qz=-0.701, qw=0.713`；新版本在 A 识别后按实际 TF 沿车头方向低速前进约 5 厘米，停稳后在实到位置转向 B。默认 `navigation.launch` 使用 `simple_local_planner`，位置容差为 0.15 米；短距离前进不经过 `move_base` 的避障规划，应先确认前方畅通。B 转向效果仍待虚拟机复测。另需复核第二次等待时识别的是第二组灯、红灯期间车身不越线，以及全程不压车道线。人物服务返回单帧计数，尚不能直接作为全街区去重人数。任一导航、识别或等灯失败会终止任务并发出停车指令。
 
 ## 现有虚拟机一键启动
 

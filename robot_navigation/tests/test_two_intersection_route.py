@@ -1,6 +1,7 @@
 """Check the measured route and stage order without requiring ROS."""
 
 import ast
+import math
 import pathlib
 import unittest
 import xml.etree.ElementTree as ET
@@ -19,7 +20,10 @@ def load_method(method_name):
     route = next(node for node in mission_class.body
                  if isinstance(node, ast.FunctionDef)
                  and node.name == method_name)
-    namespace = {'rospy': type('Logger', (), {'loginfo': staticmethod(lambda *args: None)})}
+    namespace = {
+        'math': math,
+        'rospy': type('Logger', (), {
+            'loginfo': staticmethod(lambda *args: None)})}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[route], type_ignores=[])),
                  str(SCRIPT), 'exec'), namespace)
     return namespace[method_name]
@@ -42,6 +46,10 @@ class RouteTest(unittest.TestCase):
                 events.append(('recognize', area, flag))
                 return {'community': 1, 'non-community': 0}
 
+            def advance_before_turn(self):
+                events.append(('advance', 0.05))
+                self.area_b_pose = 'turn_prep'
+
             def wait_for_green(self, label):
                 events.append(('green', label))
 
@@ -62,6 +70,8 @@ class RouteTest(unittest.TestCase):
             '街区中间 A 街区观察点', '原地转向 B 街区',
             '第二处路口前拐点', '第二处红绿灯停止线前', '第二处路口后面向车牌点'])
         self.assertLess(events.index(('recognize', 'A 街区', 1)),
+                        events.index(('advance', 0.05)))
+        self.assertLess(events.index(('advance', 0.05)),
                         events.index(('navigate', '原地转向 B 街区')))
         self.assertLess(events.index(('navigate', '原地转向 B 街区')),
                         events.index(('recognize', 'B 街区', 2)))
@@ -107,10 +117,62 @@ class RouteTest(unittest.TestCase):
         self.assertEqual((a['x'], a['y']), (b['x'], b['y']))
         self.assertAlmostEqual(a['z'] * b['z'] + a['w'] * b['w'], 0.0)
 
+    def test_turn_prep_goal_is_five_centimeters_forward(self):
+        a = {'x': 2.900, 'y': 1.700, 'z': -0.701, 'w': 0.713}
+        target = load_method('forward_pose')(a, 0.05)
+        self.assertAlmostEqual(math.hypot(target['x'] - a['x'],
+                                          target['y'] - a['y']), 0.05)
+        self.assertLess(target['y'], a['y'])
+        self.assertEqual((target['z'], target['w']), (a['z'], a['w']))
+
+    def test_short_advance_uses_actual_displacement_and_stops(self):
+        position = {'x': 2.900, 'y': 1.700}
+        commands = []
+
+        class Twist:
+            def __init__(self):
+                self.linear = type('Linear', (), {'x': 0.0})()
+
+        class Publisher:
+            def publish(self, command):
+                commands.append(command.linear.x)
+                if command.linear.x > 0:
+                    position['y'] -= 0.01
+
+        class Mission:
+            turn_prep_distance = 0.05
+            area_middle_pose = {'x': 2.900, 'y': 1.700,
+                                'z': -0.701, 'w': 0.713}
+            velocity = Publisher()
+            opposite_pose = staticmethod(load_method('opposite_pose'))
+            forward_pose = staticmethod(load_method('forward_pose'))
+
+            @staticmethod
+            def current_map_pose():
+                return {'x': position['x'], 'y': position['y'],
+                        'z': -0.701, 'w': 0.713}
+
+        advance = load_method('advance_before_turn')
+        advance.__globals__.update({
+            'Twist': Twist, 'MissionError': RuntimeError,
+            'rospy': type('Ros', (), {
+                'is_shutdown': staticmethod(lambda: False),
+                'loginfo': staticmethod(lambda *args: None)}),
+            'time': type('Clock', (), {
+                'monotonic': staticmethod(lambda: 0.0),
+                'sleep': staticmethod(lambda duration: None)})})
+        mission = Mission()
+        advance(mission)
+        self.assertAlmostEqual(position['y'], 1.650)
+        self.assertEqual(commands[-1], 0.0)
+        self.assertTrue(all(speed > 0 for speed in commands[:-1]))
+        self.assertAlmostEqual(mission.area_b_pose['y'], 1.650)
+
     def test_launch_uses_latest_measured_waypoints(self):
         root = ET.parse(LAUNCH).getroot()
         args = {item.attrib['name']: item.attrib['default']
                 for item in root.findall('arg')}
+        self.assertAlmostEqual(float(args['turn_prep_distance']), 0.05)
         expected_poses = {
             'first_corner': (3.824002265930176, 0.5524806976318359,
                              0.7105965273343292, 0.7035997266488895),
