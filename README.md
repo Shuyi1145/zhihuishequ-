@@ -16,6 +16,8 @@ roslaunch --screen robot_navigation full_competition_mission.launch
 
 详细状态见[复赛进度](docs/智慧社区复赛完赛规划.md)。
 
+首次完整任务运行在 A 识别后的 5 cm 转向准备动作被偏移保护停止。此动作现用 `odom → base_footprint` 测实际位移，到达后仍用 `map` 位姿设置 B 转向目标；保护阈值保持不变，若再次触发会打印前进和横移数值，便于区分定位跳动与实际偏移。修正尚待虚拟机复测。
+
 ## 红绿灯识别（2026-09-26）
 
 - [ROS Noetic 节点与调用说明](traffic_light_detector/README.md)：相机图像检测、绿灯连续确认、check/reset 服务。

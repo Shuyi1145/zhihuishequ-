@@ -235,6 +235,7 @@ class RouteTest(unittest.TestCase):
 
     def test_short_advance_uses_actual_displacement_and_stops(self):
         position = {'x': 2.900, 'y': 1.700}
+        map_shift = {'x': 0.0}
         commands = []
 
         class Twist:
@@ -246,6 +247,7 @@ class RouteTest(unittest.TestCase):
                 commands.append(command.linear.x)
                 if command.linear.x > 0:
                     position['y'] -= 0.01
+                    map_shift['x'] = 0.08
 
         class Mission:
             turn_prep_distance = 0.05
@@ -256,9 +258,14 @@ class RouteTest(unittest.TestCase):
             forward_pose = staticmethod(load_method('forward_pose'))
 
             @staticmethod
-            def current_map_pose():
+            def current_odom_pose():
                 return {'x': position['x'], 'y': position['y'],
                         'z': -0.701, 'w': 0.713}
+
+            @staticmethod
+            def current_map_pose():
+                return {'x': position['x'] + map_shift['x'],
+                        'y': position['y'], 'z': -0.701, 'w': 0.713}
 
         advance = load_method('advance_before_turn')
         advance.__globals__.update({
@@ -275,6 +282,46 @@ class RouteTest(unittest.TestCase):
         self.assertEqual(commands[-1], 0.0)
         self.assertTrue(all(speed > 0 for speed in commands[:-1]))
         self.assertAlmostEqual(mission.area_b_pose['y'], 1.650)
+        self.assertAlmostEqual(mission.area_b_pose['x'], 2.980)
+
+    def test_short_advance_stops_on_real_odom_sideways_motion(self):
+        position = {'x': 2.900, 'y': 1.700}
+        commands = []
+
+        class Twist:
+            def __init__(self):
+                self.linear = type('Linear', (), {'x': 0.0})()
+
+        class Publisher:
+            def publish(self, command):
+                commands.append(command.linear.x)
+                if command.linear.x > 0:
+                    position['x'] += 0.04
+
+        class Mission:
+            turn_prep_distance = 0.05
+            velocity = Publisher()
+
+            @staticmethod
+            def current_odom_pose():
+                return {'x': position['x'], 'y': position['y'],
+                        'z': -0.701, 'w': 0.713}
+
+            current_map_pose = current_odom_pose
+            forward_pose = staticmethod(load_method('forward_pose'))
+
+        advance = load_method('advance_before_turn')
+        advance.__globals__.update({
+            'Twist': Twist, 'MissionError': RuntimeError,
+            'rospy': type('Ros', (), {
+                'is_shutdown': staticmethod(lambda: False),
+                'loginfo': staticmethod(lambda *args: None)}),
+            'time': type('Clock', (), {
+                'monotonic': staticmethod(lambda: 0.0),
+                'sleep': staticmethod(lambda duration: None)})})
+        with self.assertRaisesRegex(RuntimeError, '横移 0.040 m'):
+            advance(Mission())
+        self.assertEqual(commands[-1], 0.0)
 
     def test_launch_uses_current_route_waypoints(self):
         root = ET.parse(LAUNCH).getroot()

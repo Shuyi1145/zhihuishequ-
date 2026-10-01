@@ -276,21 +276,27 @@ class SingleIntersectionMission:
         rospy.loginfo('第%d个车牌识别结果: %s', plate_index, number)
         return number
 
-    def current_map_pose(self):
+    def current_pose(self, frame):
         try:
             transform = self.tf_buffer.lookup_transform(
-                'map', 'base_footprint', rospy.Time(0), rospy.Duration(1.0))
+                frame, 'base_footprint', rospy.Time(0), rospy.Duration(1.0))
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
                 tf2_ros.ExtrapolationException) as exc:
-            raise MissionError('无法读取转向前车体位置: {}'.format(exc)) from exc
+            raise MissionError('无法读取 {} 下车体位置: {}'.format(frame, exc)) from exc
         position = transform.transform.translation
         rotation = transform.transform.rotation
         pose = {'x': position.x, 'y': position.y,
                 'z': rotation.z, 'w': rotation.w}
         if (not all(math.isfinite(value) for value in pose.values())
                 or math.hypot(pose['z'], pose['w']) < 1e-6):
-            raise MissionError('转向前车体 TF 位姿无效')
+            raise MissionError('{} 下车体 TF 位姿无效'.format(frame))
         return pose
+
+    def current_map_pose(self):
+        return self.current_pose('map')
+
+    def current_odom_pose(self):
+        return self.current_pose('odom')
 
     @staticmethod
     def forward_pose(pose, distance):
@@ -300,27 +306,33 @@ class SingleIntersectionMission:
                 'z': pose['z'], 'w': pose['w']}
 
     def advance_before_turn(self):
-        """Move a measured short distance; move_base's 15 cm tolerance would skip it."""
-        start = self.current_map_pose()
-        target = self.forward_pose(start, self.turn_prep_distance)
+        """Track the short move in odom; map localization may jump during motion."""
+        map_start = self.current_map_pose()
+        start = self.current_odom_pose()
+        target = self.forward_pose(map_start, self.turn_prep_distance)
         heading = 2.0 * math.atan2(start['z'], start['w'])
         rospy.loginfo('A 识别后向前 %.3f m，转向准备点: x=%.3f, y=%.3f',
                       self.turn_prep_distance, target['x'], target['y'])
         deadline = time.monotonic() + 6.0
         try:
             while not rospy.is_shutdown() and time.monotonic() < deadline:
-                actual = self.current_map_pose()
+                actual = self.current_odom_pose()
                 dx = actual['x'] - start['x']
                 dy = actual['y'] - start['y']
                 forward = dx * math.cos(heading) + dy * math.sin(heading)
                 sideways = abs(-dx * math.sin(heading) + dy * math.cos(heading))
                 if sideways > 0.03 or forward < -0.01:
-                    raise MissionError('转向准备点前进时发生明显偏移')
+                    raise MissionError(
+                        '转向准备点前进时发生明显偏移：odom 前进 {:.3f} m，横移 {:.3f} m'
+                        .format(forward, sideways))
                 if forward >= self.turn_prep_distance - 0.005:
+                    # The next move_base goal still needs a position in map.
+                    actual_map = self.current_map_pose()
                     self.area_b_pose = self.opposite_pose(self.area_middle_pose)
-                    self.area_b_pose['x'] = actual['x']
-                    self.area_b_pose['y'] = actual['y']
-                    rospy.loginfo('已到转向准备点: x=%.3f, y=%.3f', actual['x'], actual['y'])
+                    self.area_b_pose['x'] = actual_map['x']
+                    self.area_b_pose['y'] = actual_map['y']
+                    rospy.loginfo('已到转向准备点: map x=%.3f, y=%.3f',
+                                  actual_map['x'], actual_map['y'])
                     return
                 command = Twist()
                 command.linear.x = min(0.05, max(0.02, 0.8 * (self.turn_prep_distance - forward)))
