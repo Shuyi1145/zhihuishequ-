@@ -19,6 +19,28 @@ class MissionError(RuntimeError):
     pass
 
 
+class GreenStartGuard:
+    """Allow departure only shortly after an observed red-to-green cycle."""
+
+    def __init__(self, window):
+        self.window = window
+        self.last_red_at = None
+        self.last_now = None
+
+    def observe(self, state, allowed, now):
+        if not math.isfinite(now):
+            return False
+        if self.last_now is not None and now < self.last_now:
+            self.last_red_at = None
+        self.last_now = now
+        if state == 'red':
+            self.last_red_at = now
+        elif state == 'yellow':
+            self.last_red_at = None
+        return (state == 'green' and allowed and self.last_red_at is not None
+                and 0 <= now - self.last_red_at <= self.window)
+
+
 class SingleIntersectionMission:
     def __init__(self):
         self.move_base_name = rospy.get_param('~move_base_action', '/move_base')
@@ -26,6 +48,8 @@ class SingleIntersectionMission:
         self.reset_service_name = rospy.get_param('~reset_service', '/traffic_light/reset')
         self.goal_timeout = float(rospy.get_param('~goal_timeout', 60.0))
         self.green_timeout = float(rospy.get_param('~green_timeout', 120.0))
+        self.green_entry_window_sim = float(
+            rospy.get_param('~green_entry_window_sim', 2.0))
         self.poll_period = float(rospy.get_param('~poll_period', 0.2))
         self.stop_settle_time = float(rospy.get_param('~stop_settle_time', 1.0))
         self.stop_pose = self.read_pose('stop')
@@ -59,9 +83,10 @@ class SingleIntersectionMission:
         for name, value in (
                 ('goal_timeout', self.goal_timeout),
                 ('green_timeout', self.green_timeout),
+                ('green_entry_window_sim', self.green_entry_window_sim),
                 ('poll_period', self.poll_period),
                 ('stop_settle_time', self.stop_settle_time)):
-            if value <= 0:
+            if not math.isfinite(value) or value <= 0:
                 raise MissionError('{} must be positive'.format(name))
         poses = [('stop', self.stop_pose), ('cross', self.cross_pose)]
         if self.two_area_enabled:
@@ -157,7 +182,8 @@ class SingleIntersectionMission:
 
         rospy.loginfo('已停在%s停止线前，开始等待绿灯', label)
         deadline = time.monotonic() + self.green_timeout
-        last_state = None
+        last_status = None
+        green_start = GreenStartGuard(self.green_entry_window_sim)
         zero = Twist()
         while not rospy.is_shutdown() and time.monotonic() < deadline:
             self.velocity.publish(zero)
@@ -166,11 +192,16 @@ class SingleIntersectionMission:
                 data = json.loads(response.message)
                 state = data.get('state', 'unknown')
                 allowed = response.success and data.get('allowed') is True and state == 'green'
-                if state != last_state:
-                    rospy.loginfo('当前灯色=%s，可通行=%s', state, allowed)
-                    last_state = state
-                if allowed:
-                    rospy.loginfo('%s绿灯连续确认通过', label)
+                ready = green_start.observe(
+                    state, allowed, rospy.Time.now().to_sec())
+                status = (state, allowed, ready)
+                if status != last_status:
+                    rospy.loginfo('当前灯色=%s，识别允许=%s，本轮可起步=%s，原因=%s',
+                                  state, allowed, ready,
+                                  data.get('reason', '未提供'))
+                    last_status = status
+                if ready:
+                    rospy.loginfo('%s已观察到红转绿并确认稳定绿灯', label)
                     return
             except (rospy.ServiceException, ValueError, TypeError) as exc:
                 rospy.logwarn_throttle(5.0, '红绿灯查询失败，继续停车: %s', exc)

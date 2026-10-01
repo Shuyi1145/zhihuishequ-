@@ -13,6 +13,8 @@
   <!-- A/B、拐角与第二处斑马线：用户提供的 map -> base_footprint 实到位姿；
        第二处需确认车身停在线前，故扩展流程默认关闭。 -->
   <arg name="two_area_enabled" default="false"/>
+  <!-- 只在最近观察到红灯后的短仿真时间窗口内允许绿灯起步。 -->
+  <arg name="green_entry_window_sim" default="2.0"/>
   <arg name="area_a_x" default="1.650"/>
   <arg name="area_a_y" default="1.100"/>
   <arg name="area_a_qz" default="1.000"/>
@@ -59,6 +61,7 @@
     <param name="second_stop_qw" value="$(arg second_stop_qw)"/>
     <param name="goal_timeout" value="60.0"/>
     <param name="green_timeout" value="120.0"/>
+    <param name="green_entry_window_sim" value="$(arg green_entry_window_sim)"/>
     <param name="poll_period" value="0.2"/>
     <param name="stop_settle_time" value="1.0"/>
   </node>
