@@ -31,7 +31,7 @@ roslaunch robot_navigation single_intersection_mission.launch
 
 启动前应把车辆放在停止线点之前，并确认 `/move_base/status`、`/image_raw` 和 `/traffic_light/check` 正常。任务节点会实际驱动车辆；按 `Ctrl+C` 会取消目标并停车。
 
-## A/B 街区识别与第二处红绿灯（2026-10-01）
+## 历史路线：A/B 街区识别与第二处红绿灯（2026-10-01）
 
 `single_intersection_mission.py` 可在第一处路口后依次到 A、B 街区观察点，各停稳并调用一次现有的 `/recognize_person`（`robot_navigation/detect`）服务，再经 B 街区后的拐角导航到第二处红绿灯停止线前，重置灯色确认并等待稳定绿灯。到第二处灯后本阶段仍停车，不越过该路口。原来的单路口启动方式不变；只有设置 `two_area_enabled:=true` 才执行扩展流程。该阶段目前是代码接入，尚未在虚拟机完成整段实测。
 
@@ -56,19 +56,15 @@ roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=
 
 仓库内 ROS 包位于根目录；文档里的 Windows 路径记录原开发环境，使用时按本机目录替换。本地测试目录为 `tools/traffic_light_local`。
 
-## 新路径：通过第二处路口
+## 当前调试路线：通过第二处路口后面向车牌停车
 
-`robot_navigation/launch/two_intersection_mission.launch` 使用 `code/路径点.md` 中新测量的地图位姿，依次执行：第一处停车等绿灯、过路口、路口后两个拐点和街区中间点、A 街区识别、B 街区识别、第二处拐点、第二处停车等绿灯、越过第二处路口后结束。A/B 各调用一次 `/recognize_person`；两处灯复用 `/traffic_light/reset` 和 `/traffic_light/check`，保持原单路口的确认逻辑。车牌和返程尚不在此阶段。原来的 `single_intersection_mission.launch` 不受影响。
+`robot_navigation/launch/two_intersection_mission.launch` 使用最新[路径点记录](docs/路径点.md)中的六个位姿。第一处停车与过路口点沿用已测单路口任务。其余顺序为：第一处路口后拐点 → 下一拐点 → 街区中间面向 A 识别 → 原地转向 180° 面向 B 识别 → 第二处路口前拐点 → 停止线前等绿灯 → 第二处路口后面向车牌停车。A/B 各调用一次 `/recognize_person`；两处灯调用 `/traffic_light/reset` 和 `/traffic_light/check`。本阶段不执行车牌识别或返程。原来的 `single_intersection_mission.launch` 不受影响。
 
-**目前新路径故意不能直接启动。** `路径点.md` 中“转向90°后”记录为 `(x=0.400, y=0.500, qz=-0.009, qw=1.000)`；与上一点 `(3.700, 0.400)` 相距约 3.30 m，且朝向只由约 2° 变为 -1°，并非 90°。对应的四个启动参数默认是 `UNSET`，任务会在发车前报错。请在同一次稳定定位的仿真运行中重新测得该点的 `map -> base_footprint` 位姿，并先在 RViz 用 `2D Nav Goal` 单独验证整个路线、停车视角和车身是否位于停止线前。手动拖动车辆后的 TF 可能仍反映旧定位，单看 Gazebo 位置无法证明地图坐标正确。
-
-确认并填入真实值后，在 Gazebo、`navigation.launch simulation:=true`、红绿灯节点和 YOLO/人物识别服务都运行的情况下另开终端：
+在 Gazebo、`navigation.launch simulation:=true`、红绿灯节点和 YOLO/人物识别服务运行后，启动：
 
 ```bash
 source ~/smart_ws/devel/setup.bash
-roslaunch robot_navigation two_intersection_mission.launch \
-  turn_after_first_x:=<实测x> turn_after_first_y:=<实测y> \
-  turn_after_first_qz:=<实测qz> turn_after_first_qw:=<实测qw>
+roslaunch robot_navigation two_intersection_mission.launch
 ```
 
-`<实测...>` 需替换成数字，不要原样复制尖括号。已在代码中设置的其余新路线位姿均来自用户文档，但尚未经整段自主导航实测；尤其第二处路口后目标朝向约 -171°，车辆到点时可能转身，先确认比赛路线是否需要这个朝向。任一导航或识别失败会终止任务，不跳过该阶段。
+用户确认这些点属于同一地图与定位标定，第二处停车点的车身位于停止线前。**整段任务尚未在虚拟机实测**：先用 RViz 逐段核查目标可达、车道线、A/B 画面是否覆盖对应街区、两个灯组的相机视野和停车位置，再进行自主联调。两处灯复用同一个检测服务，必须确认第二次等待时识别的是第二组灯。人物服务返回单帧计数，尚不能直接作为全街区去重人数。任一导航、识别或等灯失败会终止任务并发出停车指令。

@@ -9,47 +9,31 @@
   <arg name="cross_qz" default="-0.004938376552505628"/>
   <arg name="cross_qw" default="0.9999878061441678"/>
 
-  <!-- 以下来自 code/路径点.md，均为 map -> base_footprint 实测位姿。 -->
-  <arg name="first_corner_x" default="3.700"/>
-  <arg name="first_corner_y" default="0.400"/>
-  <arg name="first_corner_qz" default="0.017"/>
-  <arg name="first_corner_qw" default="1.000"/>
-
-  <!-- 原记录为 (0.400, 0.500, -0.009, 1.000)，与“转向90°后”不符。
-       必须重新测量并通过启动参数传入，缺省值使任务在发车前拒绝启动。 -->
-  <arg name="turn_after_first_x" default="UNSET"/>
-  <arg name="turn_after_first_y" default="UNSET"/>
-  <arg name="turn_after_first_qz" default="UNSET"/>
-  <arg name="turn_after_first_qw" default="UNSET"/>
-
-  <arg name="next_corner_x" default="1.600"/>
-  <arg name="next_corner_y" default="0.400"/>
-  <arg name="next_corner_qz" default="-0.009"/>
-  <arg name="next_corner_qw" default="1.000"/>
-  <arg name="area_middle_x" default="1.150"/>
-  <arg name="area_middle_y" default="2.600"/>
-  <arg name="area_middle_qz" default="0.009"/>
-  <arg name="area_middle_qw" default="1.000"/>
-  <arg name="area_a_x" default="2.700"/>
-  <arg name="area_a_y" default="3.000"/>
-  <arg name="area_a_qz" default="-0.009"/>
-  <arg name="area_a_qw" default="1.000"/>
-  <arg name="area_b_x" default="3.050"/>
-  <arg name="area_b_y" default="1.500"/>
-  <arg name="area_b_qz" default="0.701"/>
-  <arg name="area_b_qw" default="0.713"/>
-  <arg name="second_corner_x" default="2.200"/>
-  <arg name="second_corner_y" default="1.500"/>
-  <arg name="second_corner_qz" default="0.695"/>
-  <arg name="second_corner_qw" default="0.719"/>
-  <arg name="second_stop_x" default="2.200"/>
-  <arg name="second_stop_y" default="2.400"/>
-  <arg name="second_stop_qz" default="0.707"/>
-  <arg name="second_stop_qw" default="0.707"/>
-  <arg name="second_cross_x" default="2.200"/>
-  <arg name="second_cross_y" default="3.750"/>
-  <arg name="second_cross_qz" default="0.997"/>
-  <arg name="second_cross_qw" default="-0.078"/>
+  <!-- 以下点位来自 2026-10-01 的 code/路径点.md；B 朝向由 A 朝向旋转 180° 得到。 -->
+  <arg name="first_corner_x" default="3.824002265930176"/>
+  <arg name="first_corner_y" default="0.5524806976318359"/>
+  <arg name="first_corner_qz" default="0.7105965273343292"/>
+  <arg name="first_corner_qw" default="0.7035997266488895"/>
+  <arg name="next_corner_x" default="3.624973773956299"/>
+  <arg name="next_corner_y" default="1.540183663368225"/>
+  <arg name="next_corner_qz" default="-0.9999627453743581"/>
+  <arg name="next_corner_qw" default="0.008631793751969744"/>
+  <arg name="area_middle_x" default="3.068969249725342"/>
+  <arg name="area_middle_y" default="1.4840493202209473"/>
+  <arg name="area_middle_qz" default="-0.7707573704168202"/>
+  <arg name="area_middle_qw" default="0.6371287750118877"/>
+  <arg name="second_corner_x" default="2.0103862285614014"/>
+  <arg name="second_corner_y" default="1.41770339012146"/>
+  <arg name="second_corner_qz" default="0.7093058728328143"/>
+  <arg name="second_corner_qw" default="0.7049008290283673"/>
+  <arg name="second_stop_x" default="2.132756233215332"/>
+  <arg name="second_stop_y" default="2.3429512977600098"/>
+  <arg name="second_stop_qz" default="0.7130028121783379"/>
+  <arg name="second_stop_qw" default="0.701161172503"/>
+  <arg name="second_cross_x" default="2.1445207595825195"/>
+  <arg name="second_cross_y" default="3.8558530807495117"/>
+  <arg name="second_cross_qz" default="0.9999972397584217"/>
+  <arg name="second_cross_qw" default="0.002349569223860622"/>
 
   <node pkg="robot_navigation" type="single_intersection_mission.py"
         name="two_intersection_mission" output="screen" required="true">
@@ -70,10 +54,6 @@
     <param name="first_corner_y" value="$(arg first_corner_y)"/>
     <param name="first_corner_qz" value="$(arg first_corner_qz)"/>
     <param name="first_corner_qw" value="$(arg first_corner_qw)"/>
-    <param name="turn_after_first_x" value="$(arg turn_after_first_x)"/>
-    <param name="turn_after_first_y" value="$(arg turn_after_first_y)"/>
-    <param name="turn_after_first_qz" value="$(arg turn_after_first_qz)"/>
-    <param name="turn_after_first_qw" value="$(arg turn_after_first_qw)"/>
     <param name="next_corner_x" value="$(arg next_corner_x)"/>
     <param name="next_corner_y" value="$(arg next_corner_y)"/>
     <param name="next_corner_qz" value="$(arg next_corner_qz)"/>
@@ -82,14 +62,6 @@
     <param name="area_middle_y" value="$(arg area_middle_y)"/>
     <param name="area_middle_qz" value="$(arg area_middle_qz)"/>
     <param name="area_middle_qw" value="$(arg area_middle_qw)"/>
-    <param name="area_a_x" value="$(arg area_a_x)"/>
-    <param name="area_a_y" value="$(arg area_a_y)"/>
-    <param name="area_a_qz" value="$(arg area_a_qz)"/>
-    <param name="area_a_qw" value="$(arg area_a_qw)"/>
-    <param name="area_b_x" value="$(arg area_b_x)"/>
-    <param name="area_b_y" value="$(arg area_b_y)"/>
-    <param name="area_b_qz" value="$(arg area_b_qz)"/>
-    <param name="area_b_qw" value="$(arg area_b_qw)"/>
     <param name="second_corner_x" value="$(arg second_corner_x)"/>
     <param name="second_corner_y" value="$(arg second_corner_y)"/>
     <param name="second_corner_qz" value="$(arg second_corner_qz)"/>
