@@ -1,6 +1,8 @@
 # zhihuishequ-
 智慧社区ROS1参考代码
 
+报告准备可查阅[报告资料索引](docs/报告资料索引.md)，其中列出本机代码、最终人物权重、官方模板、仿真场景来源，以及提交前需要核对的差异。
+
 ## 完整巡检试跑（2026-10-02）
 
 新增 `robot_navigation/launch/full_competition_mission.launch`：在原两路口任务后，按[最新路径点](docs/路径点.md)依次前往三个车牌观察点，每点停稳调用一次百度 OCR 服务，然后经终点前直行点驶入终点。车牌 2 的目标按记录朝车牌 3 调整约 5 cm。`two_intersection_mission.launch` 仍停在第二路口后点。
