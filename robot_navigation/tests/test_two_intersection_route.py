@@ -101,7 +101,7 @@ class RouteTest(unittest.TestCase):
             'hold', 'new_route'])
 
     def test_b_observation_rotates_at_same_position(self):
-        a = {'x': 3.100, 'y': 1.600,
+        a = {'x': 2.900, 'y': 1.700,
              'z': -0.701, 'w': 0.713}
         b = load_method('opposite_pose')(a)
         self.assertEqual((a['x'], a['y']), (b['x'], b['y']))
@@ -116,7 +116,7 @@ class RouteTest(unittest.TestCase):
                              0.7105965273343292, 0.7035997266488895),
             'next_corner': (3.624973773956299, 1.540183663368225,
                             -0.9999627453743581, 0.008631793751969744),
-            'area_middle': (3.100, 1.600, -0.701, 0.713),
+            'area_middle': (2.900, 1.700, -0.701, 0.713),
             'second_corner': (2.0103862285614014, 1.41770339012146,
                               0.7093058728328143, 0.7049008290283673),
             'second_stop': (2.132756233215332, 2.3429512977600098,

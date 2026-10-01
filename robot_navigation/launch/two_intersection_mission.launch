@@ -9,7 +9,7 @@
   <arg name="cross_qz" default="-0.004938376552505628"/>
   <arg name="cross_qw" default="0.9999878061441678"/>
 
-  <!-- 其余点位来自 2026-10-01 的 code/路径点.md；A 观察点采用 2026-10-02 的 TF 实测值，B 在同位置反向。 -->
+  <!-- 其余点位来自 2026-10-01 的 code/路径点.md；A/B 观察点以 TF 实测值为基准，向图下移 0.10 米、图右移 0.20 米试调。 -->
   <arg name="first_corner_x" default="3.824002265930176"/>
   <arg name="first_corner_y" default="0.5524806976318359"/>
   <arg name="first_corner_qz" default="0.7105965273343292"/>
@@ -18,8 +18,8 @@
   <arg name="next_corner_y" default="1.540183663368225"/>
   <arg name="next_corner_qz" default="-0.9999627453743581"/>
   <arg name="next_corner_qw" default="0.008631793751969744"/>
-  <arg name="area_middle_x" default="3.100"/>
-  <arg name="area_middle_y" default="1.600"/>
+  <arg name="area_middle_x" default="2.900"/>
+  <arg name="area_middle_y" default="1.700"/>
   <arg name="area_middle_qz" default="-0.701"/>
   <arg name="area_middle_qw" default="0.713"/>
   <arg name="second_corner_x" default="2.0103862285614014"/>
