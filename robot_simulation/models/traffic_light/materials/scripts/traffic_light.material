@@ -1,0 +1,95 @@
+material TrafficLight/RedDark
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        texture red_dark.png
+      }
+    }
+  }
+}
+
+material TrafficLight/RedOn
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        texture red_on.png
+      }
+    }
+  }
+}
+
+material TrafficLight/YellowDark
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        texture yellow_dark.png
+      }
+    }
+  }
+}
+
+material TrafficLight/YellowOn
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        texture yellow_on.png
+      }
+    }
+  }
+}
+
+material TrafficLight/GreenDark
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        texture green_dark.png
+      }
+    }
+  }
+}
+
+material TrafficLight/GreenOn
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        texture green_on.png
+      }
+    }
+  }
+}

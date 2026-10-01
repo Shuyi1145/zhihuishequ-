@@ -1,0 +1,31 @@
+<launch>
+  <!-- Load both implementations into an empty world, side by side. -->
+  <env name="GAZEBO_MODEL_PATH"
+       value="$(find robot_simulation)/models:$(optenv GAZEBO_MODEL_PATH)"/>
+  <env name="GAZEBO_RESOURCE_PATH"
+       value="$(find robot_simulation)/models:$(optenv GAZEBO_RESOURCE_PATH)"/>
+  <env name="GAZEBO_PLUGIN_PATH"
+       value="$(find robot_simulation)/../../devel/lib:$(optenv GAZEBO_PLUGIN_PATH)"/>
+
+  <arg name="world_name" default="empty.world"/>
+  <arg name="current_x" default="-0.45"/>
+  <arg name="animated_x" default="0.45"/>
+  <arg name="y" default="0.0"/>
+  <arg name="z" default="0.0"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(arg world_name)"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+  </include>
+
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_current_traffic_light"
+        output="screen"
+        args="-sdf -file $(find robot_simulation)/models/traffic_light/model.sdf
+              -model traffic_light_current -x $(arg current_x) -y $(arg y) -z $(arg z)"/>
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_animated_traffic_light"
+        output="screen"
+        args="-sdf -file $(find robot_simulation)/models/traffic_light_animated/model.sdf
+              -model traffic_light_animated -x $(arg animated_x) -y $(arg y) -z $(arg z)"/>
+</launch>

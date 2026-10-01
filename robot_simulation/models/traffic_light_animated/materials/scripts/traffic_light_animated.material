@@ -1,0 +1,19 @@
+// 一张完整灯面对应一个状态，由 VisualPlugin 按仿真时间选择六帧。
+// 红、红、黄、绿、绿、绿：红灯 10 秒，黄灯 5 秒，绿灯 15 秒。
+// duration=0 关闭 OGRE 自动计时，避免自动动画与仿真选帧竞争。
+
+material TrafficLightAnimated/FaceRYGSimTime
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      cull_hardware none
+      texture_unit
+      {
+        anim_texture traffic_light_animated_red_v2.png traffic_light_animated_red_v2.png traffic_light_animated_yellow_v2.png traffic_light_animated_green_v2.png traffic_light_animated_green_v2.png traffic_light_animated_green_v2.png 0
+      }
+    }
+  }
+}

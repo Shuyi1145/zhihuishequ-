@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<sdf version="1.5">
+  <model name="traffic_light">
+    <static>false</static>
+    <link name="body">
+      <gravity>false</gravity>
+      <kinematic>true</kinematic>
+      <visual name="housing">
+        <pose>0 0 0.41 0 0 0</pose>
+        <geometry><box><size>0.59 0.05 0.14</size></box></geometry>
+        <material>
+          <ambient>0.07 0.08 0.09 1</ambient>
+          <diffuse>0.11 0.12 0.13 1</diffuse>
+        </material>
+      </visual>
+      <collision name="housing_collision">
+        <pose>0 0 0.41 0 0 0</pose>
+        <geometry><box><size>0.59 0.05 0.14</size></box></geometry>
+      </collision>
+
+      <visual name="left_leg">
+        <pose>-0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+        <material>
+          <ambient>0.07 0.08 0.09 1</ambient>
+          <diffuse>0.11 0.12 0.13 1</diffuse>
+        </material>
+      </visual>
+      <collision name="left_leg_collision">
+        <pose>-0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+      </collision>
+      <visual name="right_leg">
+        <pose>0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+        <material>
+          <ambient>0.07 0.08 0.09 1</ambient>
+          <diffuse>0.11 0.12 0.13 1</diffuse>
+        </material>
+      </visual>
+      <collision name="right_leg_collision">
+        <pose>0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+      </collision>
+
+      <visual name="red_lamp">
+        <pose>-0.20 -0.026 0.41 1.57079632679 0 0</pose>
+        <geometry><plane><normal>0 0 1</normal><size>0.13 0.13</size></plane></geometry>
+        <material><script>
+          <uri>model://traffic_light/materials/scripts</uri>
+          <uri>model://traffic_light/materials/textures</uri>
+          <name>TrafficLight/RedOn</name>
+        </script></material>
+        <cast_shadows>false</cast_shadows>
+      </visual>
+      <visual name="yellow_lamp">
+        <pose>0 -0.026 0.41 1.57079632679 0 0</pose>
+        <geometry><plane><normal>0 0 1</normal><size>0.13 0.13</size></plane></geometry>
+        <material><script>
+          <uri>model://traffic_light/materials/scripts</uri>
+          <uri>model://traffic_light/materials/textures</uri>
+          <name>TrafficLight/YellowDark</name>
+        </script></material>
+        <cast_shadows>false</cast_shadows>
+      </visual>
+      <visual name="green_lamp">
+        <pose>0.20 -0.026 0.41 1.57079632679 0 0</pose>
+        <geometry><plane><normal>0 0 1</normal><size>0.13 0.13</size></plane></geometry>
+        <material><script>
+          <uri>model://traffic_light/materials/scripts</uri>
+          <uri>model://traffic_light/materials/textures</uri>
+          <name>TrafficLight/GreenDark</name>
+        </script></material>
+        <cast_shadows>false</cast_shadows>
+      </visual>
+    </link>
+
+    <plugin name="traffic_light_controller" filename="libtraffic_light_controller.so">
+      <red_duration>10</red_duration>
+      <green_duration>15</green_duration>
+      <yellow_duration>5</yellow_duration>
+    </plugin>
+  </model>
+</sdf>

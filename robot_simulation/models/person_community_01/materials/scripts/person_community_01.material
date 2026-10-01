@@ -1,0 +1,44 @@
+// 定义一个名为 PersonCommunity01 的材质
+material PersonCommunity01
+{
+  // 定义材质使用的渲染技术
+  technique
+  {
+    // 一个渲染 pass，可以理解为一次绘制过程
+    pass
+    {
+      // 开启光照计算，使材质会受到场景光源影响
+      lighting on
+
+      // 开启 Alpha 混合，用于处理带透明通道的 PNG 图片
+      scene_blend alpha_blend
+
+      // Alpha 测试：
+      // 只有 alpha 值大于等于 128 的像素才会被保留
+      // 常用于人物贴图这种“背景透明、人物不透明”的图片
+      alpha_rejection greater_equal 128
+
+      // 关闭深度写入
+      // 当前物体仍然会进行深度测试，但不会把自己的深度写入深度缓冲区
+      // 常用于透明材质，减少透明区域遮挡后方物体的问题
+      depth_write off
+
+      // 关闭硬件背面剔除
+      // 即正面和背面都进行渲染
+      cull_hardware none
+
+      // 关闭软件层面的背面剔除
+      // 配合上面的设置，使一个平面从正反两面都能看到
+      cull_software none
+
+      // 定义当前 pass 使用的纹理
+      texture_unit
+      {
+        // 使用 1.png 作为材质纹理
+        // 如果 1.png 带 Alpha 通道，则透明信息会结合上面的
+        // alpha_blend 和 alpha_rejection 进行处理
+        texture 1.png
+      }
+    }
+  }
+}

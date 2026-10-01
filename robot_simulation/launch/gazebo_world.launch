@@ -1,5 +1,9 @@
 
 <launch>
+  <env name="GAZEBO_MODEL_PATH" value="$(find robot_simulation)/models:$(optenv GAZEBO_MODEL_PATH)"/>
+  <env name="GAZEBO_RESOURCE_PATH" value="$(find robot_simulation)/models:$(optenv GAZEBO_RESOURCE_PATH)"/>
+  <env name="GAZEBO_PLUGIN_PATH" value="$(find robot_simulation)/../../../devel/lib:$(optenv GAZEBO_PLUGIN_PATH)"/>
+
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
     <arg name="world_name" value="$(find robot_simulation)/world/competition.world"/>
     <arg name="paused" value="false"/>
@@ -9,7 +13,5 @@
     <arg name="debug" value="false"/>
   </include>
 </launch>
-
-
 
 

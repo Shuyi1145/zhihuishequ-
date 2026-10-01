@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sdf version="1.5">
+  <model name="person_noncommunity_f2">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://person_noncommunity_f2/meshes/person_noncommunity_f2.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <script>
+            <uri>model://person_noncommunity_f2/materials/scripts</uri>
+            <uri>model://person_noncommunity_f2/materials/textures</uri>
+            <name>PersonNoncommunityF2</name>
+          </script>
+        </material>
+      </visual>
+
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.05 0.005 0.15</size>
+          </box>
+        </geometry>
+        <pose>0 0 0.075 0 0 0</pose>
+      </collision>
+    </link>
+  </model>
+</sdf>

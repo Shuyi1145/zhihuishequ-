@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='utf-8'?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+  <asset><unit name="meter" meter="1" /><up_axis>Z_UP</up_axis></asset>
+  <library_images>
+    <image id="person_image"><init_from>14.png</init_from></image>
+  </library_images>
+  <library_effects>
+    <effect id="person_effect">
+      <profile_COMMON>
+        <newparam sid="person_surface"><surface type="2D"><init_from>person_image</init_from><format>PNG</format></surface></newparam>
+        <newparam sid="person_sampler"><sampler2D><source>person_surface</source></sampler2D></newparam>
+        <technique sid="common">
+          <lambert>
+            <diffuse><texture texture="person_sampler" texcoord="UVSET0" /></diffuse>
+            <transparent opaque="A_ONE"><texture texture="person_sampler" texcoord="UVSET0" /></transparent>
+            <transparency><float>1</float></transparency>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+  </library_effects>
+  <library_materials><material id="person_material"><instance_effect url="#person_effect" /></material></library_materials>
+  <library_geometries>
+    <geometry id="person_geometry" name="person_geometry">
+      <mesh>
+        <source id="positions">
+          <float_array id="positions_array" count="12">-0.025 0 0 0.025 0 0 0.025 0 0.15 -0.025 0 0.15</float_array>
+          <technique_common><accessor source="#positions_array" count="4" stride="3"><param name="X" type="float" /><param name="Y" type="float" /><param name="Z" type="float" /></accessor></technique_common>
+        </source>
+        <source id="normals">
+          <float_array id="normals_array" count="6">0 -1 0 0 1 0</float_array>
+          <technique_common><accessor source="#normals_array" count="2" stride="3"><param name="X" type="float" /><param name="Y" type="float" /><param name="Z" type="float" /></accessor></technique_common>
+        </source>
+        <source id="uvs">
+          <float_array id="uvs_array" count="8">0 0 1 0 1 1 0 1</float_array>
+          <technique_common><accessor source="#uvs_array" count="4" stride="2"><param name="S" type="float" /><param name="T" type="float" /></accessor></technique_common>
+        </source>
+        <vertices id="vertices"><input semantic="POSITION" source="#positions" /></vertices>
+        <triangles material="person_material" count="4">
+          <input semantic="VERTEX" source="#vertices" offset="0" /><input semantic="NORMAL" source="#normals" offset="1" /><input semantic="TEXCOORD" source="#uvs" offset="2" set="0" />
+          <p>0 0 0 1 0 1 2 0 2 0 0 0 2 0 2 3 0 3 3 1 3 2 1 2 1 1 1 3 1 3 1 1 1 0 1 0</p>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+  <library_visual_scenes><visual_scene id="Scene"><node id="Person"><instance_geometry url="#person_geometry"><bind_material><technique_common><instance_material symbol="person_material" target="#person_material"><bind_vertex_input semantic="UVSET0" input_semantic="TEXCOORD" input_set="0" /></instance_material></technique_common></bind_material></instance_geometry></node></visual_scene></library_visual_scenes>
+  <scene><instance_visual_scene url="#Scene" /></scene>
+</COLLADA>

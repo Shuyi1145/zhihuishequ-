@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   tf
 )
+find_package(gazebo REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -104,9 +105,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES bingda_tutorials
+ LIBRARIES traffic_light_controller
  CATKIN_DEPENDS message_runtime 
-#  DEPENDS system_lib
 )
 
 ###########
@@ -118,7 +118,19 @@ catkin_package(
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
+ ${GAZEBO_INCLUDE_DIRS}
 )
+
+link_directories(${GAZEBO_LIBRARY_DIRS})
+add_library(traffic_light_controller SHARED src/traffic_light_controller.cpp)
+set_target_properties(traffic_light_controller PROPERTIES
+  COMPILE_FLAGS "${GAZEBO_CXX_FLAGS} -std=c++11")
+target_link_libraries(traffic_light_controller ${GAZEBO_LIBRARIES})
+
+add_library(traffic_light_animation SHARED src/traffic_light_animation.cpp)
+set_target_properties(traffic_light_animation PROPERTIES
+  COMPILE_FLAGS "${GAZEBO_CXX_FLAGS} -std=c++11")
+target_link_libraries(traffic_light_animation ${GAZEBO_LIBRARIES})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -170,6 +182,20 @@ include_directories(
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
+install(TARGETS traffic_light_controller traffic_light_animation
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+)
+
+install(DIRECTORY
+  models/traffic_light
+  models/traffic_light_animated
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/models
+)
+
+install(FILES
+  launch/traffic_light_compare.launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+)
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
