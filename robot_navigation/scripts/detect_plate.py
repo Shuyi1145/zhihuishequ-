@@ -1,186 +1,193 @@
 #!/usr/bin/env python3
+"""Recognize the latest camera frame with Baidu's license plate OCR service."""
 
-import rospy
-import cv2
 import base64
-import requests
+import os
 import threading
-import numpy as np
-from cv_bridge import CvBridge
-from sensor_msgs.msg import Image
-from robot_navigation.srv import *
-from PIL import Image as PILImage, ImageDraw, ImageFont 
-# 百度API配置
-API_KEY = "gvVNWJ8vclmgS2BDZbEYBDxn"
-SECRET_KEY = "GI2zAEnfWOgEXxMJRJ6zDSy0I6lUZoBp"
-ACCESS_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
-PLATE_API_URL = "https://aip.baidubce.com/rest/2.0/ocr/v1/license_plate"
+import time
+from urllib.parse import urlencode
 
-# --- 中文绘制配置 ---
-# !!! 关键：请确认这个路径在你系统上真实存在，并且是一个支持中文的字体文件 (.ttf 或 .ttc) !!!
-# 如果你不确定，可以尝试使用 /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
-FONT_PATH = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc" 
-FONT_SIZE = 30 
+import cv2
+import numpy as np
+import requests
+import rospy
+from cv_bridge import CvBridge, CvBridgeError
+from PIL import Image as PILImage, ImageDraw, ImageFont
+from sensor_msgs.msg import Image
+
+from robot_navigation.srv import detect, detectResponse
+
+
+ACCESS_TOKEN_URL = 'https://aip.baidubce.com/oauth/2.0/token'
+PLATE_API_URL = 'https://aip.baidubce.com/rest/2.0/ocr/v1/license_plate'
+
+
+def first_plate(result):
+    """Return the first plate from the current list or older object response."""
+    plates = result.get('words_result')
+    if isinstance(plates, dict):
+        plates = [plates]
+    if not isinstance(plates, list) or not plates:
+        return None
+    plate = plates[0]
+    if not isinstance(plate, dict):
+        return None
+    number = plate.get('number')
+    if not isinstance(number, str) or not number.strip():
+        return None
+    return number.strip(), plate.get('vertexes_location')
+
 
 class PlateRecognizer:
     def __init__(self):
         rospy.init_node('plate_recognition_service')
-        
-        # ROS服务
-        self.service = rospy.Service('/recognize_plate', detect, self.handle_recognition)
-        
-        # 图像订阅和发布
+        self.api_key = os.environ.get('BAIDU_OCR_API_KEY', '').strip()
+        self.secret_key = os.environ.get('BAIDU_OCR_SECRET_KEY', '').strip()
+        if not self.api_key or not self.secret_key:
+            raise RuntimeError('请先配置 BAIDU_OCR_API_KEY 和 BAIDU_OCR_SECRET_KEY')
+
         self.bridge = CvBridge()
         self.latest_image = None
         self.image_lock = threading.Lock()
-        self.image_sub = rospy.Subscriber("/image_raw", Image, self.image_callback)
-        # 结果图像发布
-        self.result_pub = rospy.Publisher("/recognized_image", Image, queue_size=1) 
-        self.save_path = '/home/GGB/catkin_ws/src/robot_navigation/scripts/pic/plate.jpg'
-        # 获取访问令牌
+        self.image_topic = rospy.get_param('~image_topic', '/image_raw')
+        self.save_dir = os.path.expanduser(
+            rospy.get_param('~save_dir', '~/smart_ws/plate_samples'))
+        self.font_path = rospy.get_param(
+            '~font_path', '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc')
         self.access_token = self.get_access_token()
-        if not self.access_token:
-            rospy.logerr("Failed to obtain Baidu API access token. Check your API credentials.")
-            rospy.signal_shutdown("API authentication failed")
-            
-        rospy.loginfo("Plate recognition service is ready")
 
-    def image_callback(self, msg):
-        """存储最新的图像"""
+        self.image_sub = rospy.Subscriber(
+            self.image_topic, Image, self.image_callback, queue_size=1)
+        self.result_pub = rospy.Publisher('/recognized_image', Image, queue_size=1)
+        self.service = rospy.Service('/recognize_plate', detect, self.handle_recognition)
+        rospy.loginfo('车牌识别服务已就绪，使用话题 %s', self.image_topic)
+
+    def image_callback(self, message):
         try:
-            # 确保图像是BGR格式，适合OpenCV处理
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8") 
-            with self.image_lock:
-                self.latest_image = cv_image.copy() # 使用copy确保线程安全
-        except Exception as e:
-            rospy.logerr(f"Image conversion error: {str(e)}")
+            frame = self.bridge.imgmsg_to_cv2(message, 'bgr8')
+        except CvBridgeError as exc:
+            rospy.logerr('相机图像转换失败: %s', exc)
+            return
+        with self.image_lock:
+            self.latest_image = frame.copy()
 
     def get_access_token(self):
-        """获取百度API访问令牌 (保持不变)"""
-        params = {
-            "grant_type": "client_credentials",
-            "client_id": API_KEY,
-            "client_secret": SECRET_KEY
-        }
         try:
-            response = requests.post(ACCESS_TOKEN_URL, params=params)
-            response.raise_for_status()
-            return response.json().get("access_token")
-        except requests.exceptions.RequestException as e:
-            rospy.logerr(f"Access token request failed: {str(e)}")
-            return None
+            response = requests.post(
+                ACCESS_TOKEN_URL,
+                params={
+                    'grant_type': 'client_credentials',
+                    'client_id': self.api_key,
+                    'client_secret': self.secret_key,
+                },
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            # RequestException may contain the credential-bearing URL.
+            raise RuntimeError('百度鉴权网络请求失败: {}'.format(type(exc).__name__)) from None
+        if response.status_code != 200:
+            raise RuntimeError('百度鉴权 HTTP 状态 {}'.format(response.status_code))
+        try:
+            data = response.json()
+        except ValueError:
+            raise RuntimeError('百度鉴权返回了非 JSON 内容') from None
+        if not isinstance(data, dict):
+            raise RuntimeError('百度鉴权返回格式错误')
+        token = data.get('access_token')
+        if not token:
+            raise RuntimeError('百度鉴权失败，错误码 {}'.format(data.get('error', 'unknown')))
+        return token
 
-    def recognize_plate(self, cv_image):
-        """
-        修改：使用百度API识别车牌。
-        现在返回完整的API响应JSON，以便提取坐标。
-        """
-        if cv_image is None:
-            return None
-            
-        # 将OpenCV图像转换为JPEG格式的base64
-        _, buffer = cv2.imencode('.jpg', cv_image)
-        img_base64 = base64.b64encode(buffer).decode('utf-8')
-        
-        # 准备API请求
-        payload = {
-            'image': img_base64,
-            'access_token': self.access_token
-        }
+    def recognize_plate(self, frame):
+        encoded, buffer = cv2.imencode('.jpg', frame)
+        if not encoded:
+            raise ValueError('相机帧无法编码为 JPEG')
+        payload = {'image': base64.b64encode(buffer.tobytes()).decode('ascii')}
+        if len(urlencode(payload).encode('ascii')) > 4 * 1024 * 1024:
+            raise ValueError('图片编码后超过百度 OCR 的 4 MB 限制')
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        
-        try:
-            response = requests.post(PLATE_API_URL, headers=headers, data=payload)
-            response.raise_for_status()
-            # 返回完整的JSON结果
-            return response.json()
-        except Exception as e:
-            rospy.logerr(f"Plate recognition API error: {str(e)}")
-            return None
-
-    def draw_plate_info(self, image, result_json):
-        """
-        在图像上绘制车牌号和锚框，使用 PIL 解决中文绘制问题。
-        """
-        draw_image = image.copy()
-        
-        if 'words_result' not in result_json:
-            return draw_image, "RECOGNITION_FAILED_NO_WORDS"
-
-        words_result = result_json['words_result']
-        plate_number = words_result.get('number', 'N/A')
-        location = words_result.get('vertexes_location', None)
-
-        if location and len(location) == 4:
-            # 1. 绘制锚框（使用 OpenCV）
-            points = np.array([[p['x'], p['y']] for p in location], np.int32)
-            cv2.polylines(draw_image, [points], isClosed=True, color=(0, 255, 0), thickness=2)
-            
-            # 确定文本绘制位置
-            x, y = location[0]['x'], location[0]['y']
-            text_y = max(20, y - 10) 
-                
-            # 转换 OpenCV BGR 图像到 PIL RGB 图像
-            pil_image = PILImage.fromarray(cv2.cvtColor(draw_image, cv2.COLOR_BGR2RGB))
-            draw = ImageDraw.Draw(pil_image)
-            
+        for attempt in range(2):
             try:
-                # 加载中文字体
-                font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
-            except IOError:
-                rospy.logerr(f"Could not load font: {FONT_PATH}. Check font path! Using default font.")
-                font = ImageFont.load_default() # 如果加载失败，使用默认字体 (可能仍无法显示中文)
-            
-            # 绘制文本
-            # PIL使用RGB：(255, 255, 0) 是黄色
-            draw.text((x, text_y), plate_number, font=font, fill=(255, 255, 0))
-            
-            # 转换回 OpenCV BGR 格式
-            draw_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-            
-            rospy.loginfo(f"Recognized plate: {plate_number}. Bounding box drawn.")
-        else:
-            rospy.logwarn("Plate number recognized but vertexes_location not found or invalid.")
+                response = requests.post(
+                    PLATE_API_URL,
+                    params={'access_token': self.access_token},
+                    data=payload,
+                    headers=headers,
+                    timeout=15,
+                )
+            except requests.RequestException as exc:
+                raise RuntimeError('车牌 OCR 网络请求失败: {}'.format(type(exc).__name__)) from None
+            if response.status_code != 200:
+                raise RuntimeError('车牌 OCR HTTP 状态 {}'.format(response.status_code))
+            try:
+                result = response.json()
+            except ValueError:
+                raise RuntimeError('车牌 OCR 返回了非 JSON 内容') from None
+            if not isinstance(result, dict):
+                raise RuntimeError('车牌 OCR 返回格式错误')
+            if result.get('error_code') in (110, 111) and attempt == 0:
+                self.access_token = self.get_access_token()
+                continue
+            if 'error_code' in result:
+                raise RuntimeError('车牌 OCR 错误码 {}'.format(result['error_code']))
+            return result
+        raise RuntimeError('车牌 OCR 访问令牌更新后仍不可用')
 
-        return draw_image, plate_number
+    def draw_result(self, frame, number, vertices):
+        annotated = frame.copy()
+        if not isinstance(vertices, list) or len(vertices) != 4:
+            return annotated
+        try:
+            points = np.array(
+                [[int(point['x']), int(point['y'])] for point in vertices],
+                dtype=np.int32,
+            )
+        except (KeyError, TypeError, ValueError):
+            return annotated
+        cv2.polylines(annotated, [points], True, (0, 255, 0), 2)
+        try:
+            font = ImageFont.truetype(self.font_path, 30)
+            image = PILImage.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+            ImageDraw.Draw(image).text(
+                (int(points[0][0]), max(0, int(points[0][1]) - 35)),
+                number, font=font, fill=(255, 255, 0),
+            )
+            return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
+        except (OSError, UnicodeError):
+            rospy.logwarn('中文字体不可用，仅保存车牌框；识别号码仍会输出')
+            return annotated
 
-    def handle_recognition(self, req):
-        """处理服务请求"""
-        if req.detect_flag==3:
-            rospy.loginfo("I GOT Request:%d,Starting car plate detection",req.detect_flag)
-            # 获取最新图像
-            with self.image_lock:
-                current_image = self.latest_image.copy() # 再次copy，确保在处理过程中不被订阅回调修改
-                
-            # 检查是否有可用图像
-            if current_image is None:
-                rospy.logwarn("No image available for recognition")
-                return detectResponse("ERROR: No image available")
-                
-            # 1. 执行车牌识别，获取完整JSON结果
-            result_json = self.recognize_plate(current_image)
-            
-            if result_json:
-                # 2. 在图像上绘制识别信息
-                result_image, plate_number = self.draw_plate_info(current_image, result_json)
+    def handle_recognition(self, request):
+        if request.detect_flag != 3:
+            return detectResponse('ERROR: detect_flag 必须为 3')
+        with self.image_lock:
+            frame = None if self.latest_image is None else self.latest_image.copy()
+        if frame is None:
+            return detectResponse('ERROR: 尚未收到相机图像')
 
-                # 3. 保存绘制结果的图像
-                cv2.imwrite(self.save_path, result_image)
-                rospy.loginfo(f"Successfully saved image to: {self.save_path}")
-                    
-                # 4. 返回车牌号给服务调用方
-                if plate_number and plate_number != 'N/A':
-                    return detectResponse(plate_number)
-                else:
-                    return detectResponse("RECOGNITION_FAILED")
+        try:
+            result = self.recognize_plate(frame)
+            plate = first_plate(result)
+            if plate is None:
+                return detectResponse('RECOGNITION_FAILED')
+            number, vertices = plate
+            annotated = self.draw_result(frame, number, vertices)
+            os.makedirs(self.save_dir, exist_ok=True)
+            path = os.path.join(
+                self.save_dir, 'plate_detected_{}.png'.format(time.time_ns()))
+            if not cv2.imwrite(path, annotated):
+                raise OSError('识别结果图像写入失败')
+            self.result_pub.publish(self.bridge.cv2_to_imgmsg(annotated, 'bgr8'))
+            rospy.loginfo('识别车牌：%s；结果图：%s', number, path)
+            return detectResponse(number)
+        except (RuntimeError, ValueError, OSError, cv2.error, CvBridgeError) as exc:
+            rospy.logerr('车牌识别失败: %s', exc)
+            return detectResponse('ERROR: {}'.format(exc))
 
-            else:
-                rospy.logwarn("Plate recognition failed (API returned no valid result)")
-                return detectResponse("RECOGNITION_FAILED")
 
 if __name__ == '__main__':
     try:
-        recognizer = PlateRecognizer()
+        PlateRecognizer()
         rospy.spin()
-    except rospy.ROSInterruptException:
-        pass
+    except (RuntimeError, rospy.ROSInterruptException) as exc:
+        rospy.logerr('车牌识别节点启动失败: %s', exc)

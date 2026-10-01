@@ -56,6 +56,10 @@ roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=
 
 仓库内 ROS 包位于根目录；文档里的 Windows 路径记录原开发环境，使用时按本机目录替换。本地测试目录为 `tools/traffic_light_local`。
 
+## 车牌原图与百度 OCR 准备
+
+车牌阶段先在第二处路口后的停车位置保存一张 `/image_raw` 原图，用于百度车牌识别在线调试；当前两路口任务仍到此停车，不自动调用 OCR。采图命令、私有密钥文件放置方法和后续手动启动 OCR 节点见[车牌采图与百度 OCR 说明](docs/车牌采图与百度OCR.md)。API Key 与 Secret Key 不在 Git 仓库中。
+
 ## 当前调试路线：通过第二处路口后面向车牌停车
 
 `robot_navigation/launch/two_intersection_mission.launch` 使用最新[路径点记录](docs/路径点.md)中的路线。第一处停车与过路口点沿用已测单路口任务。其余顺序为：第一处路口后拐点 → 下一拐点 → 街区中间面向 A 识别 → 沿实际车头方向前进约 5 厘米 → 在新位置转向 180° 面向 B 识别 → 第二处路口前拐点 → 停止线前等绿灯 → 第二处路口后面向车牌停车。A/B 各调用一次 `/recognize_person`；两处灯调用 `/traffic_light/reset` 和 `/traffic_light/check`。本阶段不执行车牌识别或返程。原来的 `single_intersection_mission.launch` 不受影响。

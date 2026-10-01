@@ -164,6 +164,8 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   scripts/single_intersection_mission.py
+  scripts/detect_plate.py
+  scripts/save_raw_image.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
