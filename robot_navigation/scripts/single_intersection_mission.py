@@ -34,8 +34,11 @@ class SingleIntersectionMission:
         self.cross_pose = self.read_pose('cross')
         self.two_area_enabled = rospy.get_param('~two_area_enabled', False)
         self.two_intersection_enabled = rospy.get_param('~two_intersection_enabled', False)
+        self.full_mission_enabled = rospy.get_param('~full_mission_enabled', False)
         if self.two_area_enabled and self.two_intersection_enabled:
             raise MissionError('two_area_enabled 与 two_intersection_enabled 不能同时启用')
+        if self.full_mission_enabled and not self.two_intersection_enabled:
+            raise MissionError('完整巡检必须启用 two_intersection_enabled')
         if self.two_intersection_enabled:
             self.first_corner_pose = self.read_pose('first_corner')
             self.next_corner_pose = self.read_pose('next_corner')
@@ -44,12 +47,21 @@ class SingleIntersectionMission:
             self.second_corner_pose = self.read_pose('second_corner')
             self.second_stop_pose = self.read_pose('second_stop')
             self.second_cross_pose = self.read_pose('second_cross')
+            if self.full_mission_enabled:
+                self.plate_approach_route = self.read_route(
+                    'plate_approach_route', required=False)
+                self.plate_poses = tuple(
+                    self.read_pose('plate_{}'.format(index)) for index in range(1, 4))
+                self.finish_approach_route = self.read_route('finish_approach_route')
+                self.finish_pose = self.read_pose('finish')
         elif self.two_area_enabled:
             self.area_a_pose = self.read_pose('area_a')
             self.area_b_pose = self.read_pose('area_b')
             self.second_corner_pose = self.read_pose('second_corner')
             self.second_stop_pose = self.read_pose('second_stop')
         self.person_service_name = rospy.get_param('~person_service', '/recognize_person')
+        self.plate_service_name = rospy.get_param('~plate_service', '/recognize_plate')
+        self.area_results = {}
         self.validate()
 
         self.velocity = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
@@ -77,6 +89,21 @@ class SingleIntersectionMission:
         return {'x': pose['x'], 'y': pose['y'],
                 'z': pose['w'], 'w': -pose['z']}
 
+    @staticmethod
+    def read_route(param_name, required=True):
+        entries = rospy.get_param('~{}'.format(param_name), None)
+        if not isinstance(entries, list) or (required and not entries):
+            raise MissionError('{} 路线配置缺失或格式错误'.format(param_name))
+        route = []
+        for index, entry in enumerate(entries, 1):
+            try:
+                pose = {'x': float(entry['x']), 'y': float(entry['y']),
+                        'z': float(entry['qz']), 'w': float(entry['qw'])}
+            except (KeyError, TypeError, ValueError) as exc:
+                raise MissionError('{} 第{}点格式错误'.format(param_name, index)) from exc
+            route.append((entry.get('label', '{} 第{}点'.format(param_name, index)), pose))
+        return tuple(route)
+
     def validate(self):
         for name, value in (
                 ('goal_timeout', self.goal_timeout),
@@ -95,6 +122,12 @@ class SingleIntersectionMission:
                           ('second_corner', self.second_corner_pose),
                           ('second_stop', self.second_stop_pose),
                           ('second_cross', self.second_cross_pose)))
+            if self.full_mission_enabled:
+                poses.extend(self.plate_approach_route)
+                poses.extend(('plate_{}'.format(index), pose)
+                             for index, pose in enumerate(self.plate_poses, 1))
+                poses.extend(self.finish_approach_route)
+                poses.append(('finish', self.finish_pose))
         elif self.two_area_enabled:
             poses.extend((('area_a', self.area_a_pose),
                           ('area_b', self.area_b_pose),
@@ -233,6 +266,16 @@ class SingleIntersectionMission:
                       area_name, counts['community'], counts['non-community'])
         return counts
 
+    def recognize_plate(self, plate_index):
+        self.wait_for_service_wall(self.plate_service_name, 10.0)
+        service = rospy.ServiceProxy(self.plate_service_name, detect)
+        response = service(3)
+        number = response.result.strip()
+        if not number or number.startswith('ERROR:') or number == 'RECOGNITION_FAILED':
+            raise MissionError('第{}个车牌识别失败: {}'.format(plate_index, number))
+        rospy.loginfo('第%d个车牌识别结果: %s', plate_index, number)
+        return number
+
     def current_map_pose(self):
         try:
             transform = self.tf_buffer.lookup_transform(
@@ -296,6 +339,7 @@ class SingleIntersectionMission:
 
         self.hold_stopped(self.stop_settle_time)
         area_a_counts = self.recognize_people('A 街区', 1)
+        self.area_results['A'] = area_a_counts
         self.hold_stopped(self.stop_settle_time)
 
         self.advance_before_turn()
@@ -303,6 +347,7 @@ class SingleIntersectionMission:
         self.navigate('原地转向 B 街区', self.area_b_pose)
         self.hold_stopped(self.stop_settle_time)
         area_b_counts = self.recognize_people('B 街区', 2)
+        self.area_results['B'] = area_b_counts
         self.hold_stopped(self.stop_settle_time)
         rospy.loginfo('两街区分别完成一次识别：A=%s，B=%s；视野重叠前不直接相加',
                       area_a_counts, area_b_counts)
@@ -313,8 +358,29 @@ class SingleIntersectionMission:
         self.wait_for_green('第二处红绿灯')
         self.navigate('第二处路口后面向车牌点', self.second_cross_pose)
         self.hold_stopped(self.stop_settle_time)
+        if not self.full_mission_enabled:
+            self.stop_robot()
+            rospy.loginfo('已到达第二处路口后面向车牌并停车；本阶段结束，未执行车牌识别')
+
+    def run_full_route(self):
+        numbers = []
+        if not self.plate_approach_route:
+            rospy.logwarn('第二路口后点至车牌 1 未设置中间拐点；由 move_base 直接规划，须现场检查规划线是否沿指定车道')
+        for label, pose in self.plate_approach_route:
+            self.navigate(label, pose)
+        for index, pose in enumerate(self.plate_poses, 1):
+            self.navigate('第{}个车牌观察点'.format(index), pose)
+            self.hold_stopped(self.stop_settle_time)
+            numbers.append(self.recognize_plate(index))
+            self.hold_stopped(self.stop_settle_time)
+        for label, pose in self.finish_approach_route:
+            self.navigate(label, pose)
+        self.navigate('巡检终点', self.finish_pose)
+        self.hold_stopped(self.stop_settle_time)
         self.stop_robot()
-        rospy.loginfo('已到达第二处路口后面向车牌并停车；本阶段结束，未执行车牌识别')
+        rospy.loginfo('完整巡检到达终点；车牌按顺序识别为：%s', '、'.join(numbers))
+        rospy.loginfo('人物分街区结果：A=%s，B=%s；未证实视野无重叠前不合计人数',
+                      self.area_results.get('A'), self.area_results.get('B'))
 
     def run(self):
         self.wait_for_action_server()
@@ -325,6 +391,8 @@ class SingleIntersectionMission:
         self.hold_stopped(self.stop_settle_time)
         if self.two_intersection_enabled:
             self.run_two_intersections()
+            if self.full_mission_enabled:
+                self.run_full_route()
         elif self.two_area_enabled:
             self.navigate('A 街区人物观察点', self.area_a_pose)
             self.hold_stopped(self.stop_settle_time)

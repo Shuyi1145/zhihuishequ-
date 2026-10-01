@@ -1,0 +1,10 @@
+<launch>
+  <arg name="full_route_file" default="$(find robot_navigation)/config/full_route.yaml"/>
+  <!-- OCR service and full route mission run together; other perception nodes are started separately. -->
+  <include file="$(find robot_navigation)/launch/plate_recognition.launch"/>
+  <include file="$(find robot_navigation)/launch/two_intersection_mission.launch">
+    <arg name="full_mission_enabled" value="true"/>
+    <arg name="full_route_file" value="$(arg full_route_file)"/>
+    <arg name="goal_timeout" value="180.0"/>
+  </include>
+</launch>

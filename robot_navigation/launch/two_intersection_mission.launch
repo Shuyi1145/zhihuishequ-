@@ -36,11 +36,18 @@
   <arg name="second_cross_y" default="3.8558530807495117"/>
   <arg name="second_cross_qz" default="0.9999972397584217"/>
   <arg name="second_cross_qw" default="0.002349569223860622"/>
+  <arg name="full_mission_enabled" default="false"/>
+  <arg name="full_route_file" default="$(find robot_navigation)/config/full_route.yaml"/>
+  <arg name="plate_service" default="/recognize_plate"/>
+  <arg name="goal_timeout" default="60.0"/>
 
   <node pkg="robot_navigation" type="single_intersection_mission.py"
         name="two_intersection_mission" output="screen" required="true">
     <param name="two_intersection_enabled" type="bool" value="true"/>
-    <param name="goal_timeout" value="60.0"/>
+    <param name="full_mission_enabled" type="bool" value="$(arg full_mission_enabled)"/>
+    <param name="plate_service" value="$(arg plate_service)"/>
+    <rosparam command="load" file="$(arg full_route_file)"/>
+    <param name="goal_timeout" value="$(arg goal_timeout)"/>
     <param name="green_timeout" value="120.0"/>
     <param name="poll_period" value="0.2"/>
     <param name="stop_settle_time" value="1.0"/>

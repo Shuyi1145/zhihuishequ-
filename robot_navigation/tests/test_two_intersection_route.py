@@ -6,10 +6,14 @@ import pathlib
 import unittest
 import xml.etree.ElementTree as ET
 
+import yaml
+
 
 PACKAGE = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = PACKAGE / 'scripts' / 'single_intersection_mission.py'
 LAUNCH = PACKAGE / 'launch' / 'two_intersection_mission.launch'
+FULL_LAUNCH = PACKAGE / 'launch' / 'full_competition_mission.launch'
+FULL_ROUTE = PACKAGE / 'config' / 'full_route.yaml'
 
 
 def load_method(method_name):
@@ -26,15 +30,43 @@ def load_method(method_name):
             'loginfo': staticmethod(lambda *args: None)})}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[route], type_ignores=[])),
                  str(SCRIPT), 'exec'), namespace)
-    return namespace[method_name]
+    method = namespace[method_name]
+    return method.__func__ if isinstance(method, staticmethod) else method
 
 
 class RouteTest(unittest.TestCase):
+    def test_full_route_uses_latest_measured_plate_and_finish_points(self):
+        route = yaml.safe_load(FULL_ROUTE.read_text(encoding='utf-8'))
+        self.assertEqual(route['plate_approach_route'], [])
+        self.assertEqual(len(route['finish_approach_route']), 1)
+        self.assertAlmostEqual(route['finish_approach_route'][0]['x'],
+                               3.0032618045806885)
+        self.assertAlmostEqual(route['finish_approach_route'][0]['y'],
+                               3.6526408195495605)
+        for index, expected in enumerate((
+                (3.2281994819641113, 0.2914993464946747),
+                (3.266586056626282, 1.0489431724920904),
+                (3.259136438369751, 1.6074515581130981)), 1):
+            self.assertAlmostEqual(route['plate_{}_x'.format(index)], expected[0])
+            self.assertAlmostEqual(route['plate_{}_y'.format(index)], expected[1])
+        self.assertAlmostEqual(route['finish_x'], 3.826688051223755)
+        self.assertAlmostEqual(route['finish_y'], 3.675142526626587)
+
+        full_launch = ET.parse(FULL_LAUNCH).getroot()
+        self.assertEqual(len(full_launch.findall('include')), 2)
+        mission_include = next(item for item in full_launch.findall('include')
+                               if 'two_intersection_mission.launch' in
+                               item.attrib['file'])
+        enabled = mission_include.find("arg[@name='full_mission_enabled']")
+        self.assertEqual(enabled.attrib['value'], 'true')
+
     def test_stage_order_and_two_distinct_person_calls(self):
         events = []
 
         class FakeMission:
             stop_settle_time = 1.0
+            full_mission_enabled = False
+            area_results = {}
 
             def navigate(self, label, pose):
                 events.append(('navigate', label))
@@ -88,6 +120,7 @@ class RouteTest(unittest.TestCase):
             stop_settle_time = 1.0
             two_intersection_enabled = True
             two_area_enabled = False
+            full_mission_enabled = False
 
             def wait_for_action_server(self):
                 events.append('server')
@@ -109,6 +142,81 @@ class RouteTest(unittest.TestCase):
             'server', ('navigate', '停止线前观察点'), 'hold',
             ('green', '第一处红绿灯'), ('navigate', '路口后目标点'),
             'hold', 'new_route'])
+
+    def test_full_route_visits_each_plate_and_finishes(self):
+        events = []
+
+        class FakeMission:
+            stop_settle_time = 1.0
+            plate_approach_route = [('沿底边拐点', 'bottom')]
+            plate_poses = ('plate_1', 'plate_2', 'plate_3')
+            finish_approach_route = [('沿上边拐点', 'top')]
+            finish_pose = 'finish'
+            area_results = {'A': {'community': 2}, 'B': {'community': 1}}
+
+            def navigate(self, label, pose):
+                events.append(('navigate', label, pose))
+
+            def hold_stopped(self, duration):
+                events.append(('hold', duration))
+
+            def recognize_plate(self, index):
+                events.append(('plate', index))
+                return '车牌{}'.format(index)
+
+            def stop_robot(self):
+                events.append(('stop',))
+
+        load_method('run_full_route')(FakeMission())
+        self.assertEqual([event[0] for event in events if event[0] == 'plate'],
+                         ['plate', 'plate', 'plate'])
+        self.assertEqual([event[1] for event in events if event[0] == 'plate'],
+                         [1, 2, 3])
+        self.assertEqual([event[2] for event in events if event[0] == 'navigate'],
+                         ['bottom', 'plate_1', 'plate_2', 'plate_3', 'top', 'finish'])
+        self.assertEqual(events[-1], ('stop',))
+
+    def test_full_route_allows_direct_plate_approach_but_requires_finish_turn(self):
+        read_route = load_method('read_route')
+        read_route.__globals__.update({
+            'MissionError': RuntimeError,
+            'rospy': type('Ros', (), {
+                'get_param': staticmethod(lambda name, default=None: [])})})
+        self.assertEqual(read_route('plate_approach_route', required=False), ())
+        with self.assertRaisesRegex(RuntimeError, '路线配置缺失或格式错误'):
+            read_route('finish_approach_route')
+        with self.assertRaisesRegex(RuntimeError, '路线配置缺失或格式错误'):
+            read_route('plate_approach_route')
+
+    def test_plate_service_flag_and_failure(self):
+        recognize_plate = load_method('recognize_plate')
+        calls = []
+        replies = iter(['冀DSX888', 'RECOGNITION_FAILED'])
+
+        class Service:
+            def __call__(self, flag):
+                calls.append(flag)
+                return type('Reply', (), {'result': next(replies)})()
+
+        recognize_plate.__globals__.update({
+            'detect': object(),
+            'MissionError': RuntimeError,
+            'rospy': type('Ros', (), {
+                'ServiceProxy': staticmethod(lambda *args: Service()),
+                'loginfo': staticmethod(lambda *args: None)})})
+
+        class Mission:
+            plate_service_name = '/recognize_plate'
+
+            @staticmethod
+            def wait_for_service_wall(name, timeout):
+                calls.append(('wait', name, timeout))
+
+        mission = Mission()
+        self.assertEqual(recognize_plate(mission, 1), '冀DSX888')
+        with self.assertRaisesRegex(RuntimeError, '第2个车牌识别失败'):
+            recognize_plate(mission, 2)
+        self.assertEqual([call for call in calls if isinstance(call, int)], [3, 3])
 
     def test_b_observation_rotates_at_same_position(self):
         a = {'x': 2.900, 'y': 1.700,

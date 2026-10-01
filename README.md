@@ -1,6 +1,21 @@
 # zhihuishequ-
 智慧社区ROS1参考代码
 
+## 完整巡检试跑（2026-10-02）
+
+新增 `robot_navigation/launch/full_competition_mission.launch`：在原两路口任务后，按[最新路径点](docs/路径点.md)依次前往三个车牌观察点，每点停稳调用一次百度 OCR 服务，然后经终点前直行点驶入终点。车牌 2 的目标按记录朝车牌 3 调整约 5 cm。`two_intersection_mission.launch` 仍停在第二路口后点。
+
+Gazebo、导航、红绿灯识别和人物 YOLO 均启动，且车辆位于第一处停止线前，另开终端运行：
+
+```bash
+source ~/smart_ws/devel/setup.bash
+roslaunch --screen robot_navigation full_competition_mission.launch
+```
+
+完整入口会同时启动车牌 OCR 服务；若已单独运行 `plate_recognition.launch`，先关闭该服务，避免同名节点冲突。第二路口后点到车牌 1 暂无实测中间拐点，程序交由 `move_base` 直接规划。这两点在同一地图中相距约 3.73 m，首次试跑须看 RViz 全局路径是否沿指定车道、车身是否压线。完整路线尚未在虚拟机整圈验证；若规划线穿街区，应在 `robot_navigation/config/full_route.yaml` 的 `plate_approach_route` 补实测拐点后再跑。车牌识别失败会终止任务并停车。A/B 仍分开统计，尚无可靠的跨视野去重依据。
+
+详细状态见[复赛进度](docs/智慧社区复赛完赛规划.md)。
+
 ## 红绿灯识别（2026-09-26）
 
 - [ROS Noetic 节点与调用说明](traffic_light_detector/README.md)：相机图像检测、绿灯连续确认、check/reset 服务。
