@@ -7,8 +7,13 @@ import tempfile
 import unittest
 from urllib.parse import urlencode
 
+import cv2
+import numpy as np
+from PIL import Image as PILImage, ImageDraw, ImageFont
+
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / 'scripts' / 'detect_plate.py'
+FONT = SCRIPT.parents[1] / 'fonts' / 'NotoSansSC.ttf'
 
 
 def load_function(name, class_name=None, namespace=None):
@@ -26,6 +31,23 @@ def load_function(name, class_name=None, namespace=None):
 
 
 class PlateOcrTest(unittest.TestCase):
+    def test_result_image_contains_number_and_box(self):
+        draw_result = load_function('draw_result', 'PlateRecognizer', {
+            'cv2': cv2, 'np': np, 'PILImage': PILImage,
+            'ImageDraw': ImageDraw, 'ImageFont': ImageFont,
+        })
+        detector = type('Detector', (), {'font_path': str(FONT)})()
+        frame = np.full((480, 640, 3), 255, dtype=np.uint8)
+        vertices = [
+            {'x': 214, 'y': 193}, {'x': 300, 'y': 193},
+            {'x': 300, 'y': 220}, {'x': 214, 'y': 220},
+        ]
+        result = draw_result(detector, frame, '冀DSX888', vertices)
+        yellow_text = np.all(result[:50] == (0, 255, 255), axis=2)
+        self.assertGreater(np.count_nonzero(yellow_text), 50)
+        self.assertTrue(np.array_equal(result[193, 214], (0, 255, 0)))
+        self.assertTrue(np.all(frame == 255))
+
     def test_credentials_file_reads_expected_keys(self):
         load_credentials_file = load_function('load_credentials_file')
         with tempfile.TemporaryDirectory() as directory:

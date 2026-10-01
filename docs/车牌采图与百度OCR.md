@@ -15,7 +15,9 @@ source ~/smart_ws/devel/setup.bash
 roslaunch robot_navigation plate_recognition.launch
 ```
 
-车牌节点读取环境变量或仓库配置文件。它从 `/image_raw` 接收图片，通过 `/recognize_plate` 服务（`detect_flag=3`）触发百度 OCR，结果图保存到 `~/smart_ws/plate_samples/`。主任务目前不会自动触发该服务。
+车牌节点读取环境变量或仓库配置文件。它从 `/image_raw` 接收图片，通过 `/recognize_plate` 服务（`detect_flag=3`）触发百度 OCR。结果图在顶部黑色栏用中文字体标出完整车牌号，并在有效角点处画绿色框；同时保存到 `~/smart_ws/plate_samples/`、发布到 `/recognized_image`。字体随仓库提供，启动时若加载失败会直接报错。主任务目前不会自动触发该服务。
+
+查看结果图时，在 Image View 中选择 `/recognized_image`；该话题保留最近一次识别结果，识别完成后打开 Image View 也能看到。不要选择原始话题 `/image_raw`，它不会带识别文字。
 
 百度接口把 `access_token` 放在请求 URL 参数中，图片以 Base64 放在表单体中。现有解析代码兼容本次实测的 `words_result` 对象格式和列表格式。虚拟机 ROS 服务的手动调用已成功一次；仍需验证任务自动触发和不同车牌、距离、角度下的稳定性。
 

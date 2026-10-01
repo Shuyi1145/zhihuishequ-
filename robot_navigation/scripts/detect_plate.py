@@ -76,13 +76,19 @@ class PlateRecognizer:
         self.image_topic = rospy.get_param('~image_topic', '/image_raw')
         self.save_dir = os.path.expanduser(
             rospy.get_param('~save_dir', '~/smart_ws/plate_samples'))
-        self.font_path = rospy.get_param(
-            '~font_path', '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc')
+        self.font_path = rospy.get_param('~font_path', '')
+        if not self.font_path:
+            raise RuntimeError('请通过 font_path 参数指定中文字体')
+        try:
+            ImageFont.truetype(self.font_path, 24)
+        except OSError:
+            raise RuntimeError('无法加载车牌结果图使用的中文字体') from None
         self.access_token = self.get_access_token()
 
         self.image_sub = rospy.Subscriber(
             self.image_topic, Image, self.image_callback, queue_size=1)
-        self.result_pub = rospy.Publisher('/recognized_image', Image, queue_size=1)
+        self.result_pub = rospy.Publisher(
+            '/recognized_image', Image, queue_size=1, latch=True)
         self.service = rospy.Service('/recognize_plate', detect, self.handle_recognition)
         rospy.loginfo('车牌识别服务已就绪，使用话题 %s', self.image_topic)
 
@@ -159,27 +165,27 @@ class PlateRecognizer:
 
     def draw_result(self, frame, number, vertices):
         annotated = frame.copy()
-        if not isinstance(vertices, list) or len(vertices) != 4:
-            return annotated
-        try:
-            points = np.array(
-                [[int(point['x']), int(point['y'])] for point in vertices],
-                dtype=np.int32,
-            )
-        except (KeyError, TypeError, ValueError):
-            return annotated
-        cv2.polylines(annotated, [points], True, (0, 255, 0), 2)
-        try:
-            font = ImageFont.truetype(self.font_path, 30)
-            image = PILImage.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
-            ImageDraw.Draw(image).text(
-                (int(points[0][0]), max(0, int(points[0][1]) - 35)),
-                number, font=font, fill=(255, 255, 0),
-            )
-            return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
-        except (OSError, UnicodeError):
-            rospy.logwarn('中文字体不可用，仅保存车牌框；识别号码仍会输出')
-            return annotated
+        if isinstance(vertices, list) and len(vertices) == 4:
+            try:
+                points = np.array(
+                    [[int(point['x']), int(point['y'])] for point in vertices],
+                    dtype=np.int32,
+                )
+            except (KeyError, TypeError, ValueError):
+                rospy.logwarn('车牌角点无效，结果图只显示号码')
+            else:
+                cv2.polylines(annotated, [points], True, (0, 255, 0), 2)
+
+        font_size = max(18, min(32, annotated.shape[0] // 12))
+        font = ImageFont.truetype(self.font_path, font_size)
+        image = PILImage.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle(
+            (0, 0, image.width - 1, min(image.height - 1, font_size + 18)),
+            fill=(0, 0, 0),
+        )
+        draw.text((10, 5), '车牌: {}'.format(number), font=font, fill=(255, 255, 0))
+        return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
 
     def handle_recognition(self, request):
         if request.detect_flag != 3:
