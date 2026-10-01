@@ -10,20 +10,25 @@
   <arg name="cross_qz" default="-0.004938376552505628"/>
   <arg name="cross_qw" default="0.9999878061441678"/>
 
-  <!-- A/B 街区与第二处停止线均须实测；未启用时保留原单路口流程。 -->
+  <!-- A/B、拐角与第二处斑马线：用户提供的 map -> base_footprint 实到位姿；
+       第二处需确认车身停在线前，故扩展流程默认关闭。 -->
   <arg name="two_area_enabled" default="false"/>
-  <arg name="area_a_x" default="UNSET"/>
-  <arg name="area_a_y" default="UNSET"/>
-  <arg name="area_a_qz" default="UNSET"/>
-  <arg name="area_a_qw" default="UNSET"/>
-  <arg name="area_b_x" default="UNSET"/>
-  <arg name="area_b_y" default="UNSET"/>
-  <arg name="area_b_qz" default="UNSET"/>
-  <arg name="area_b_qw" default="UNSET"/>
-  <arg name="second_stop_x" default="UNSET"/>
-  <arg name="second_stop_y" default="UNSET"/>
-  <arg name="second_stop_qz" default="UNSET"/>
-  <arg name="second_stop_qw" default="UNSET"/>
+  <arg name="area_a_x" default="1.650"/>
+  <arg name="area_a_y" default="1.100"/>
+  <arg name="area_a_qz" default="1.000"/>
+  <arg name="area_a_qw" default="0.000"/>
+  <arg name="area_b_x" default="2.550"/>
+  <arg name="area_b_y" default="3.050"/>
+  <arg name="area_b_qz" default="1.000"/>
+  <arg name="area_b_qw" default="-0.009"/>
+  <arg name="second_corner_x" default="2.450"/>
+  <arg name="second_corner_y" default="2.100"/>
+  <arg name="second_corner_qz" default="1.000"/>
+  <arg name="second_corner_qw" default="0.019"/>
+  <arg name="second_stop_x" default="1.700"/>
+  <arg name="second_stop_y" default="2.150"/>
+  <arg name="second_stop_qz" default="1.000"/>
+  <arg name="second_stop_qw" default="0.026"/>
 
   <node pkg="robot_navigation" type="single_intersection_mission.py"
         name="single_intersection_mission" output="screen" required="true">
@@ -44,6 +49,10 @@
     <param name="area_b_y" value="$(arg area_b_y)"/>
     <param name="area_b_qz" value="$(arg area_b_qz)"/>
     <param name="area_b_qw" value="$(arg area_b_qw)"/>
+    <param name="second_corner_x" value="$(arg second_corner_x)"/>
+    <param name="second_corner_y" value="$(arg second_corner_y)"/>
+    <param name="second_corner_qz" value="$(arg second_corner_qz)"/>
+    <param name="second_corner_qw" value="$(arg second_corner_qw)"/>
     <param name="second_stop_x" value="$(arg second_stop_x)"/>
     <param name="second_stop_y" value="$(arg second_stop_y)"/>
     <param name="second_stop_qz" value="$(arg second_stop_qz)"/>

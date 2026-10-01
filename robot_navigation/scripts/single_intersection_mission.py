@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the first intersection, two person areas, and the second stop line."""
+"""Run the first intersection, two person areas, a corner, and second stop."""
 
 import json
 import math
@@ -34,6 +34,7 @@ class SingleIntersectionMission:
         if self.two_area_enabled:
             self.area_a_pose = self.read_pose('area_a')
             self.area_b_pose = self.read_pose('area_b')
+            self.second_corner_pose = self.read_pose('second_corner')
             self.second_stop_pose = self.read_pose('second_stop')
         self.person_service_name = rospy.get_param('~person_service', '/recognize_person')
         self.validate()
@@ -66,6 +67,7 @@ class SingleIntersectionMission:
         if self.two_area_enabled:
             poses.extend((('area_a', self.area_a_pose),
                           ('area_b', self.area_b_pose),
+                          ('second_corner', self.second_corner_pose),
                           ('second_stop', self.second_stop_pose)))
         for name, pose in poses:
             if not all(math.isfinite(value) for value in pose.values()):
@@ -218,6 +220,7 @@ class SingleIntersectionMission:
             self.hold_stopped(self.stop_settle_time)
             rospy.loginfo('两街区分别完成一次识别：A=%s，B=%s；视野重叠前不直接相加',
                           area_a_counts, area_b_counts)
+            self.navigate('B 街区后拐角', self.second_corner_pose)
             self.navigate('第二处红绿灯停止线前', self.second_stop_pose)
             self.hold_stopped(self.stop_settle_time)
             self.wait_for_green('第二处红绿灯')

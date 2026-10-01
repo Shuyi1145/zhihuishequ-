@@ -33,21 +33,25 @@ roslaunch robot_navigation single_intersection_mission.launch
 
 ## A/B 街区识别与第二处红绿灯（2026-10-01）
 
-`single_intersection_mission.py` 可在第一处路口后依次到 A、B 街区观察点，各停稳并调用一次现有的 `/recognize_person`（`robot_navigation/detect`）服务，然后导航到第二处红绿灯停止线前，重置灯色确认并等待稳定绿灯。到第二处灯后本阶段仍停车，不越过该路口。原来的单路口启动方式不变；只有设置 `two_area_enabled:=true` 才执行扩展流程。该阶段目前是代码接入，尚未在虚拟机完成整段实测。
+`single_intersection_mission.py` 可在第一处路口后依次到 A、B 街区观察点，各停稳并调用一次现有的 `/recognize_person`（`robot_navigation/detect`）服务，再经 B 街区后的拐角导航到第二处红绿灯停止线前，重置灯色确认并等待稳定绿灯。到第二处灯后本阶段仍停车，不越过该路口。原来的单路口启动方式不变；只有设置 `two_area_enabled:=true` 才执行扩展流程。该阶段目前是代码接入，尚未在虚拟机完成整段实测。
 
-三个新点位（A、B、第二处停止线前）必须在当前地图中实测。如果车已停在合适位置，运行 `rosrun tf tf_echo map base_footprint`，读取当前车体在 `map` 下的 Translation `x/y` 与 Rotation Quaternion `z/w`（按 `Ctrl+C` 停止输出）。本项目代价地图使用 `base_footprint` 作为车体坐标系。也可在终端先运行 `rostopic echo -n 1 /move_base_simple/goal`，再用 RViz 的 **2D Nav Goal** 选可达的点，记录 `header.frame_id=map`、`position.x/y` 和 `orientation.z/w`；点击会同时发送导航目标。只查看平面位置可用 **Publish Point** 和 `rostopic echo -n 1 /clicked_point`，但这不提供朝向。
+用户提供了以下 `map → base_footprint` 实到位姿，已作为 launch 默认值。它们是车体中心位姿，不自动证明导航目标可达，也不证明车身在停止线前。
 
-把每处实测的四个值代入以下命令；大写标记均为占位符，不是场地坐标：
+| 点位 | x (m) | y (m) | qz | qw |
+|---|---:|---:|---:|---:|
+| A 街区观察点 | 1.650 | 1.100 | 1.000 | 0.000 |
+| B 街区观察点 | 2.550 | 3.050 | 1.000 | -0.009 |
+| B 街区后拐角 | 2.450 | 2.100 | 1.000 | 0.019 |
+| 第二处斑马线附近 | 1.700 | 2.150 | 1.000 | 0.026 |
+
+**启用扩展任务前**，在 RViz 中依次验证第一处路口后目标点 → A → B → 拐角 → 第二处点的路径可达，确认每次停稳后相机只覆盖对应街区，并确认第二处点的**整个车身**位于停止线前、摄像头能看见第二组灯。B → 拐角的位移主要朝地图 y 负方向，但给出的拐角朝向约 178°（朝 x 负方向）；`move_base` 可能在拐角停车调整朝向后才继续，应检查实际轨迹是否符合比赛路线。若第二处点落在斑马线上，应重新停车测量车身安全位置，再覆盖 `second_stop_*` 参数。圆整后的四元数会在节点内归一化。
+
+验证通过后启动扩展流程：
 
 ```bash
-roslaunch robot_navigation single_intersection_mission.launch \
-  two_area_enabled:=true \
-  area_a_x:=A_X area_a_y:=A_Y area_a_qz:=A_QZ area_a_qw:=A_QW \
-  area_b_x:=B_X area_b_y:=B_Y area_b_qz:=B_QZ area_b_qw:=B_QW \
-  second_stop_x:=SECOND_X second_stop_y:=SECOND_Y \
-  second_stop_qz:=SECOND_QZ second_stop_qw:=SECOND_QW
+roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=true
 ```
 
-启动前确认 `/recognize_person`、`/image_raw`、导航和红绿灯服务均在运行。A/B 分别以 `detect_flag=1/2` 触发同一个 YOLO 模型；该标志本身不会切换识别类别或限定视野。观察方向必须让每次画面只覆盖对应街区，否则同一立牌可能被两次计数。程序分别记录 A/B 人数，在视野不重叠尚未确认前不直接相加。未填真实坐标会在发车前报错；不能用旧路线或示意图像素代替 `map` 坐标。
+启动前确认 `/recognize_person`、`/image_raw`、导航和红绿灯服务均在运行。A/B 分别以 `detect_flag=1/2` 触发同一个 YOLO 模型；该标志本身不会切换识别类别或限定视野。观察方向必须让每次画面只覆盖对应街区，否则同一立牌可能被两次计数。程序分别记录 A/B 人数，在视野不重叠尚未确认前不直接相加。第二处灯复用同一个红绿灯检测服务，必须确认检测到的是**第二组**灯，而非第一处灯或场景中其他亮点。当前位置不合适时，可通过 `second_stop_x:=...` 等同名参数覆盖默认值。
 
 仓库内 ROS 包位于根目录；文档里的 Windows 路径记录原开发环境，使用时按本机目录替换。本地测试目录为 `tools/traffic_light_local`。
