@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import threading
 import os
+import time
 
 from ultralytics import YOLO
 from cv_bridge import CvBridge
@@ -41,8 +42,9 @@ class YoloDetector:
             rospy.signal_shutdown(f"Error loading YOLO model: {e}")
             return
             
-        # --- 存储路径和最新图像 ---
-        self.save_path = '/home/GGB/catkin_ws/src/robot_navigation/scripts/pic/'
+        # --- 保存识别所用原图与最新相机图像 ---
+        self.capture_dir = os.path.expanduser(
+            rospy.get_param("~capture_dir", "~/smart_ws/person_samples"))
         self.latest_image = None
         self.latest_header = Header()
         self.image_lock = threading.Lock()
@@ -110,6 +112,8 @@ class YoloDetector:
                     rospy.logwarn("No image available for detection.")
                     return detectResponse("ERROR: No image available")
 
+            raw_frame = im0.copy()
+
             # --- 使用 ultralytics YOLO 进行推理 ---
             results = self.model(
                 im0,
@@ -168,16 +172,15 @@ class YoloDetector:
                 cv2.imshow("YOLO Detection Result", annotated_frame)
                 cv2.waitKey(1)
                 
-            # --- 保存图像 ---
+            # 这张无标注原图与本次推理使用的是同一帧。
             try:
-                save_dir = os.path.dirname(self.save_path)
-                if not os.path.exists(save_dir):
-                    os.makedirs(save_dir)
-                filename = f"{req.detect_flag}.jpg"
-                cv2.imwrite(self.save_path+ filename , annotated_frame)
-                rospy.loginfo(f"Detection result saved to: {self.save_path}")
-            except Exception as e:
-                rospy.logerr(f"Failed to save image: {e}")
+                raw_path, annotated_path = self.save_capture(
+                    raw_frame, annotated_frame, req.detect_flag)
+                rospy.loginfo("A/B 识别图像已保存：原图 %s，带框图 %s",
+                              raw_path, annotated_path)
+            except (OSError, cv2.error) as exc:
+                rospy.logerr("识别图像保存失败: %s", exc)
+                return detectResponse("ERROR: Image capture failed: {}".format(exc))
 
             # 准备并返回包含计数的服务响应字符串 ===
             # 将字典 {'person': 2, 'car': 1} 转换为 "car:1, person:2"
@@ -187,6 +190,18 @@ class YoloDetector:
             rospy.loginfo(f"Detection finished. Counts: {response_str if response_str else 'None'}")
             
             return detectResponse(response_str)
+
+    def save_capture(self, raw_frame, annotated_frame, detect_flag):
+        os.makedirs(self.capture_dir, exist_ok=True)
+        area = "A" if detect_flag == 1 else "B"
+        stem = "{}_{}".format(area, time.time_ns())
+        raw_path = os.path.join(self.capture_dir, stem + "_raw.png")
+        annotated_path = os.path.join(self.capture_dir, stem + "_detected.png")
+        if not cv2.imwrite(raw_path, raw_frame):
+            raise OSError("无法写入原图: {}".format(raw_path))
+        if not cv2.imwrite(annotated_path, annotated_frame):
+            raise OSError("无法写入带框图: {}".format(annotated_path))
+        return raw_path, annotated_path
 
 if __name__ == "__main__":
     rospy.init_node("yolo_detector_node", anonymous=True)

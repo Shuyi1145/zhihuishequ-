@@ -19,6 +19,7 @@
 
     <!-- ROS topics -->
     <arg name="input_image_topic" default="/image_raw" />
+    <arg name="capture_dir" default="$(env HOME)/smart_ws/person_samples" />
     <arg name="output_topic" default="/yolo/detections" />
 
     <!-- Optional topic (publishing annotated image) -->
@@ -43,6 +44,7 @@
         <param name="inference_size_w" value="$(arg inference_size_w)" />
 
         <param name="input_image_topic" value="$(arg input_image_topic)" />
+        <param name="capture_dir" value="$(arg capture_dir)" />
         <param name="output_topic" value="$(arg output_topic)" />
 
         <param name="view_image" value="$(arg view_image)" />
