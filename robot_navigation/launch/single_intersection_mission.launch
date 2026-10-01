@@ -10,6 +10,21 @@
   <arg name="cross_qz" default="-0.004938376552505628"/>
   <arg name="cross_qw" default="0.9999878061441678"/>
 
+  <!-- A/B 街区与第二处停止线均须实测；未启用时保留原单路口流程。 -->
+  <arg name="two_area_enabled" default="false"/>
+  <arg name="area_a_x" default="UNSET"/>
+  <arg name="area_a_y" default="UNSET"/>
+  <arg name="area_a_qz" default="UNSET"/>
+  <arg name="area_a_qw" default="UNSET"/>
+  <arg name="area_b_x" default="UNSET"/>
+  <arg name="area_b_y" default="UNSET"/>
+  <arg name="area_b_qz" default="UNSET"/>
+  <arg name="area_b_qw" default="UNSET"/>
+  <arg name="second_stop_x" default="UNSET"/>
+  <arg name="second_stop_y" default="UNSET"/>
+  <arg name="second_stop_qz" default="UNSET"/>
+  <arg name="second_stop_qw" default="UNSET"/>
+
   <node pkg="robot_navigation" type="single_intersection_mission.py"
         name="single_intersection_mission" output="screen" required="true">
     <param name="stop_x" value="$(arg stop_x)"/>
@@ -20,6 +35,19 @@
     <param name="cross_y" value="$(arg cross_y)"/>
     <param name="cross_qz" value="$(arg cross_qz)"/>
     <param name="cross_qw" value="$(arg cross_qw)"/>
+    <param name="two_area_enabled" type="bool" value="$(arg two_area_enabled)"/>
+    <param name="area_a_x" value="$(arg area_a_x)"/>
+    <param name="area_a_y" value="$(arg area_a_y)"/>
+    <param name="area_a_qz" value="$(arg area_a_qz)"/>
+    <param name="area_a_qw" value="$(arg area_a_qw)"/>
+    <param name="area_b_x" value="$(arg area_b_x)"/>
+    <param name="area_b_y" value="$(arg area_b_y)"/>
+    <param name="area_b_qz" value="$(arg area_b_qz)"/>
+    <param name="area_b_qw" value="$(arg area_b_qw)"/>
+    <param name="second_stop_x" value="$(arg second_stop_x)"/>
+    <param name="second_stop_y" value="$(arg second_stop_y)"/>
+    <param name="second_stop_qz" value="$(arg second_stop_qz)"/>
+    <param name="second_stop_qw" value="$(arg second_stop_qw)"/>
     <param name="goal_timeout" value="60.0"/>
     <param name="green_timeout" value="120.0"/>
     <param name="poll_period" value="0.2"/>

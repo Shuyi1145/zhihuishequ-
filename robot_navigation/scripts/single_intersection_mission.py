@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one stop-line mission using move_base and the traffic-light service."""
+"""Run the first intersection, two person areas, and the second stop line."""
 
 import json
 import math
@@ -11,6 +11,7 @@ from actionlib_msgs.msg import GoalStatus
 from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 import rospy
+from robot_navigation.srv import detect
 from std_srvs.srv import Trigger
 
 
@@ -29,6 +30,12 @@ class SingleIntersectionMission:
         self.stop_settle_time = float(rospy.get_param('~stop_settle_time', 1.0))
         self.stop_pose = self.read_pose('stop')
         self.cross_pose = self.read_pose('cross')
+        self.two_area_enabled = rospy.get_param('~two_area_enabled', False)
+        if self.two_area_enabled:
+            self.area_a_pose = self.read_pose('area_a')
+            self.area_b_pose = self.read_pose('area_b')
+            self.second_stop_pose = self.read_pose('second_stop')
+        self.person_service_name = rospy.get_param('~person_service', '/recognize_person')
         self.validate()
 
         self.velocity = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
@@ -37,12 +44,15 @@ class SingleIntersectionMission:
 
     @staticmethod
     def read_pose(prefix):
-        return {
-            'x': float(rospy.get_param('~{}_x'.format(prefix))),
-            'y': float(rospy.get_param('~{}_y'.format(prefix))),
-            'z': float(rospy.get_param('~{}_qz'.format(prefix))),
-            'w': float(rospy.get_param('~{}_qw'.format(prefix))),
-        }
+        try:
+            return {
+                'x': float(rospy.get_param('~{}_x'.format(prefix))),
+                'y': float(rospy.get_param('~{}_y'.format(prefix))),
+                'z': float(rospy.get_param('~{}_qz'.format(prefix))),
+                'w': float(rospy.get_param('~{}_qw'.format(prefix))),
+            }
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MissionError('{} 点坐标未设置或格式错误'.format(prefix)) from exc
 
     def validate(self):
         for name, value in (
@@ -52,7 +62,12 @@ class SingleIntersectionMission:
                 ('stop_settle_time', self.stop_settle_time)):
             if value <= 0:
                 raise MissionError('{} must be positive'.format(name))
-        for name, pose in (('stop', self.stop_pose), ('cross', self.cross_pose)):
+        poses = [('stop', self.stop_pose), ('cross', self.cross_pose)]
+        if self.two_area_enabled:
+            poses.extend((('area_a', self.area_a_pose),
+                          ('area_b', self.area_b_pose),
+                          ('second_stop', self.second_stop_pose)))
+        for name, pose in poses:
             if not all(math.isfinite(value) for value in pose.values()):
                 raise MissionError('{} pose contains a non-finite value'.format(name))
             norm = math.hypot(pose['z'], pose['w'])
@@ -129,7 +144,7 @@ class SingleIntersectionMission:
             self.velocity.publish(zero)
             time.sleep(min(self.poll_period, 0.1))
 
-    def wait_for_green(self):
+    def wait_for_green(self, label):
         self.wait_for_service_wall(self.reset_service_name, 10.0)
         self.wait_for_service_wall(self.check_service_name, 10.0)
         reset = rospy.ServiceProxy(self.reset_service_name, Trigger)
@@ -138,7 +153,7 @@ class SingleIntersectionMission:
         if not response.success:
             raise MissionError('红绿灯状态重置失败: {}'.format(response.message))
 
-        rospy.loginfo('已停在停止线前，开始等待绿灯')
+        rospy.loginfo('已停在%s停止线前，开始等待绿灯', label)
         deadline = time.monotonic() + self.green_timeout
         last_state = None
         zero = Twist()
@@ -153,21 +168,63 @@ class SingleIntersectionMission:
                     rospy.loginfo('当前灯色=%s，可通行=%s', state, allowed)
                     last_state = state
                 if allowed:
-                    rospy.loginfo('绿灯连续确认通过，允许进入路口')
+                    rospy.loginfo('%s绿灯连续确认通过', label)
                     return
             except (rospy.ServiceException, ValueError, TypeError) as exc:
                 rospy.logwarn_throttle(5.0, '红绿灯查询失败，继续停车: %s', exc)
             time.sleep(self.poll_period)
         raise MissionError('等待绿灯超时，保持停车')
 
+    @staticmethod
+    def parse_person_counts(result):
+        if result.startswith('ERROR:'):
+            raise MissionError('人物识别失败: {}'.format(result))
+        counts = {'community': 0, 'non-community': 0}
+        if not result.strip():
+            return counts
+        for item in result.split(','):
+            name, separator, value = item.strip().partition(':')
+            if not separator or name not in counts or not value.isdigit():
+                raise MissionError('人物识别返回格式错误: {}'.format(result))
+            counts[name] = int(value)
+        return counts
+
+    def recognize_people(self, area_name, detect_flag):
+        self.wait_for_service_wall(self.person_service_name, 10.0)
+        service = rospy.ServiceProxy(self.person_service_name, detect)
+        response = service(detect_flag)
+        counts = self.parse_person_counts(response.result)
+        if not any(counts.values()):
+            raise MissionError('{}未识别到人员，不能把空结果当作已完成识别'.format(area_name))
+        rospy.loginfo('%s识别：community=%d, non-community=%d',
+                      area_name, counts['community'], counts['non-community'])
+        return counts
+
     def run(self):
         self.wait_for_action_server()
         self.navigate('停止线前观察点', self.stop_pose)
         self.hold_stopped(self.stop_settle_time)
-        self.wait_for_green()
+        self.wait_for_green('第一处红绿灯')
         self.navigate('路口后目标点', self.cross_pose)
         self.hold_stopped(self.stop_settle_time)
-        rospy.loginfo('单路口任务完成')
+        if self.two_area_enabled:
+            self.navigate('A 街区人物观察点', self.area_a_pose)
+            self.hold_stopped(self.stop_settle_time)
+            area_a_counts = self.recognize_people('A 街区', 1)
+            self.hold_stopped(self.stop_settle_time)
+            self.navigate('B 街区人物观察点', self.area_b_pose)
+            self.hold_stopped(self.stop_settle_time)
+            area_b_counts = self.recognize_people('B 街区', 2)
+            self.hold_stopped(self.stop_settle_time)
+            rospy.loginfo('两街区分别完成一次识别：A=%s，B=%s；视野重叠前不直接相加',
+                          area_a_counts, area_b_counts)
+            self.navigate('第二处红绿灯停止线前', self.second_stop_pose)
+            self.hold_stopped(self.stop_settle_time)
+            self.wait_for_green('第二处红绿灯')
+            self.hold_stopped(self.stop_settle_time)
+            rospy.loginfo('已确认第二处绿灯；本阶段停在第二处停止线前，不越过路口')
+        else:
+            rospy.loginfo('单路口任务完成')
 
 
 def main():
