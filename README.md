@@ -55,3 +55,20 @@ roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=
 启动前确认 `/recognize_person`、`/image_raw`、导航和红绿灯服务均在运行。A/B 分别以 `detect_flag=1/2` 触发同一个 YOLO 模型；该标志本身不会切换识别类别或限定视野。观察方向必须让每次画面只覆盖对应街区，否则同一立牌可能被两次计数。程序分别记录 A/B 人数，在视野不重叠尚未确认前不直接相加。第二处灯复用同一个红绿灯检测服务，必须确认检测到的是**第二组**灯，而非第一处灯或场景中其他亮点。当前位置不合适时，可通过 `second_stop_x:=...` 等同名参数覆盖默认值。
 
 仓库内 ROS 包位于根目录；文档里的 Windows 路径记录原开发环境，使用时按本机目录替换。本地测试目录为 `tools/traffic_light_local`。
+
+## 新路径：通过第二处路口
+
+`robot_navigation/launch/two_intersection_mission.launch` 使用 `code/路径点.md` 中新测量的地图位姿，依次执行：第一处停车等绿灯、过路口、路口后两个拐点和街区中间点、A 街区识别、B 街区识别、第二处拐点、第二处停车等绿灯、越过第二处路口后结束。A/B 各调用一次 `/recognize_person`；两处灯复用 `/traffic_light/reset` 和 `/traffic_light/check`，保持原单路口的确认逻辑。车牌和返程尚不在此阶段。原来的 `single_intersection_mission.launch` 不受影响。
+
+**目前新路径故意不能直接启动。** `路径点.md` 中“转向90°后”记录为 `(x=0.400, y=0.500, qz=-0.009, qw=1.000)`；与上一点 `(3.700, 0.400)` 相距约 3.30 m，且朝向只由约 2° 变为 -1°，并非 90°。对应的四个启动参数默认是 `UNSET`，任务会在发车前报错。请在同一次稳定定位的仿真运行中重新测得该点的 `map -> base_footprint` 位姿，并先在 RViz 用 `2D Nav Goal` 单独验证整个路线、停车视角和车身是否位于停止线前。手动拖动车辆后的 TF 可能仍反映旧定位，单看 Gazebo 位置无法证明地图坐标正确。
+
+确认并填入真实值后，在 Gazebo、`navigation.launch simulation:=true`、红绿灯节点和 YOLO/人物识别服务都运行的情况下另开终端：
+
+```bash
+source ~/smart_ws/devel/setup.bash
+roslaunch robot_navigation two_intersection_mission.launch \
+  turn_after_first_x:=<实测x> turn_after_first_y:=<实测y> \
+  turn_after_first_qz:=<实测qz> turn_after_first_qw:=<实测qw>
+```
+
+`<实测...>` 需替换成数字，不要原样复制尖括号。已在代码中设置的其余新路线位姿均来自用户文档，但尚未经整段自主导航实测；尤其第二处路口后目标朝向约 -171°，车辆到点时可能转身，先确认比赛路线是否需要这个朝向。任一导航或识别失败会终止任务，不跳过该阶段。

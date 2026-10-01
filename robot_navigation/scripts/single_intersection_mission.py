@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the first intersection, two person areas, a corner, and second stop."""
+"""Run one or two intersections with the existing signal and person services."""
 
 import json
 import math
@@ -31,7 +31,20 @@ class SingleIntersectionMission:
         self.stop_pose = self.read_pose('stop')
         self.cross_pose = self.read_pose('cross')
         self.two_area_enabled = rospy.get_param('~two_area_enabled', False)
-        if self.two_area_enabled:
+        self.two_intersection_enabled = rospy.get_param('~two_intersection_enabled', False)
+        if self.two_area_enabled and self.two_intersection_enabled:
+            raise MissionError('two_area_enabled 与 two_intersection_enabled 不能同时启用')
+        if self.two_intersection_enabled:
+            self.first_corner_pose = self.read_pose('first_corner')
+            self.turn_after_first_pose = self.read_pose('turn_after_first')
+            self.next_corner_pose = self.read_pose('next_corner')
+            self.area_middle_pose = self.read_pose('area_middle')
+            self.area_a_pose = self.read_pose('area_a')
+            self.area_b_pose = self.read_pose('area_b')
+            self.second_corner_pose = self.read_pose('second_corner')
+            self.second_stop_pose = self.read_pose('second_stop')
+            self.second_cross_pose = self.read_pose('second_cross')
+        elif self.two_area_enabled:
             self.area_a_pose = self.read_pose('area_a')
             self.area_b_pose = self.read_pose('area_b')
             self.second_corner_pose = self.read_pose('second_corner')
@@ -64,7 +77,17 @@ class SingleIntersectionMission:
             if value <= 0:
                 raise MissionError('{} must be positive'.format(name))
         poses = [('stop', self.stop_pose), ('cross', self.cross_pose)]
-        if self.two_area_enabled:
+        if self.two_intersection_enabled:
+            poses.extend((('first_corner', self.first_corner_pose),
+                          ('turn_after_first', self.turn_after_first_pose),
+                          ('next_corner', self.next_corner_pose),
+                          ('area_middle', self.area_middle_pose),
+                          ('area_a', self.area_a_pose),
+                          ('area_b', self.area_b_pose),
+                          ('second_corner', self.second_corner_pose),
+                          ('second_stop', self.second_stop_pose),
+                          ('second_cross', self.second_cross_pose)))
+        elif self.two_area_enabled:
             poses.extend((('area_a', self.area_a_pose),
                           ('area_b', self.area_b_pose),
                           ('second_corner', self.second_corner_pose),
@@ -202,6 +225,34 @@ class SingleIntersectionMission:
                       area_name, counts['community'], counts['non-community'])
         return counts
 
+    def run_two_intersections(self):
+        for label, pose in (
+                ('第一处路口后拐点', self.first_corner_pose),
+                ('第一次转向后路径点', self.turn_after_first_pose),
+                ('下一个拐弯点', self.next_corner_pose),
+                ('街区中间', self.area_middle_pose)):
+            self.navigate(label, pose)
+
+        self.navigate('A 街区人物观察点', self.area_a_pose)
+        self.hold_stopped(self.stop_settle_time)
+        area_a_counts = self.recognize_people('A 街区', 1)
+        self.hold_stopped(self.stop_settle_time)
+
+        self.navigate('B 街区人物观察点', self.area_b_pose)
+        self.hold_stopped(self.stop_settle_time)
+        area_b_counts = self.recognize_people('B 街区', 2)
+        self.hold_stopped(self.stop_settle_time)
+        rospy.loginfo('两街区分别完成一次识别：A=%s，B=%s；视野重叠前不直接相加',
+                      area_a_counts, area_b_counts)
+
+        self.navigate('第二处路口前拐点', self.second_corner_pose)
+        self.navigate('第二处红绿灯停止线前', self.second_stop_pose)
+        self.hold_stopped(self.stop_settle_time)
+        self.wait_for_green('第二处红绿灯')
+        self.navigate('第二处路口后目标点', self.second_cross_pose)
+        self.hold_stopped(self.stop_settle_time)
+        rospy.loginfo('已到达第二处路口后目标点，本阶段完成')
+
     def run(self):
         self.wait_for_action_server()
         self.navigate('停止线前观察点', self.stop_pose)
@@ -209,7 +260,9 @@ class SingleIntersectionMission:
         self.wait_for_green('第一处红绿灯')
         self.navigate('路口后目标点', self.cross_pose)
         self.hold_stopped(self.stop_settle_time)
-        if self.two_area_enabled:
+        if self.two_intersection_enabled:
+            self.run_two_intersections()
+        elif self.two_area_enabled:
             self.navigate('A 街区人物观察点', self.area_a_pose)
             self.hold_stopped(self.stop_settle_time)
             area_a_counts = self.recognize_people('A 街区', 1)
@@ -238,7 +291,7 @@ def main():
         mission.run()
         return 0
     except (MissionError, rospy.ROSException, rospy.ServiceException) as exc:
-        rospy.logerr('单路口任务失败: %s', exc)
+        rospy.logerr('路口任务失败: %s', exc)
         if mission is not None:
             mission.stop_robot()
         return 1
