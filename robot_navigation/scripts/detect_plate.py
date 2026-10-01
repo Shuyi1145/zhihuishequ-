@@ -165,6 +165,7 @@ class PlateRecognizer:
 
     def draw_result(self, frame, number, vertices):
         annotated = frame.copy()
+        bounds = None
         if isinstance(vertices, list) and len(vertices) == 4:
             try:
                 points = np.array(
@@ -174,17 +175,30 @@ class PlateRecognizer:
             except (KeyError, TypeError, ValueError):
                 rospy.logwarn('车牌角点无效，结果图只显示号码')
             else:
-                cv2.polylines(annotated, [points], True, (0, 255, 0), 2)
+                cv2.polylines(annotated, [points], True, (0, 255, 255), 2)
+                bounds = (int(points[:, 0].min()), int(points[:, 1].min()),
+                          int(points[:, 1].max()))
 
-        font_size = max(18, min(32, annotated.shape[0] // 12))
+        font_size = max(18, min(28, annotated.shape[0] // 16))
         font = ImageFont.truetype(self.font_path, font_size)
         image = PILImage.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(image)
+        label = '车牌: {}'.format(number)
+        label_width = min(image.width, font.getmask(label).size[0] + 12)
+        label_height = min(image.height, font_size + 12)
+        if bounds is None:
+            label_x, label_y = 0, 0
+        else:
+            left, top, bottom = bounds
+            label_x = max(0, min(left, image.width - label_width))
+            label_y = top - label_height - 3
+            if label_y < 0:
+                label_y = bottom + 3
+            label_y = max(0, min(label_y, image.height - label_height))
         draw.rectangle(
-            (0, 0, image.width - 1, min(image.height - 1, font_size + 18)),
-            fill=(0, 0, 0),
-        )
-        draw.text((10, 5), '车牌: {}'.format(number), font=font, fill=(255, 255, 0))
+            (label_x, label_y, label_x + label_width - 1,
+             label_y + label_height - 1), fill=(255, 255, 0))
+        draw.text((label_x + 6, label_y + 2), label, font=font, fill=(0, 0, 0))
         return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
 
     def handle_recognition(self, request):

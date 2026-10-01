@@ -15,7 +15,7 @@ source ~/smart_ws/devel/setup.bash
 roslaunch robot_navigation plate_recognition.launch
 ```
 
-车牌节点读取环境变量或仓库配置文件。它从 `/image_raw` 接收图片，通过 `/recognize_plate` 服务（`detect_flag=3`）触发百度 OCR。结果图在顶部黑色栏用中文字体标出完整车牌号，并在有效角点处画绿色框；同时保存到 `~/smart_ws/plate_samples/`、发布到 `/recognized_image`。字体随仓库提供，启动时若加载失败会直接报错。主任务目前不会自动触发该服务。
+车牌节点读取环境变量或仓库配置文件。它从 `/image_raw` 接收图片，通过 `/recognize_plate` 服务（`detect_flag=3`）触发百度 OCR。结果图在有效角点处画黄色车牌框，并紧贴框上方显示黄色底、黑色字的完整车牌号；靠近画面上缘时把标签放到框下方。结果图保存到 `~/smart_ws/plate_samples/`、发布到 `/recognized_image`。字体随仓库提供，启动时若加载失败会直接报错。主任务目前不会自动触发该服务。
 
 查看结果图时，在 Image View 中选择 `/recognized_image`；该话题保留最近一次识别结果，识别完成后打开 Image View 也能看到。不要选择原始话题 `/image_raw`，它不会带识别文字。
 

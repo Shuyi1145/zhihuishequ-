@@ -43,9 +43,13 @@ class PlateOcrTest(unittest.TestCase):
             {'x': 300, 'y': 220}, {'x': 214, 'y': 220},
         ]
         result = draw_result(detector, frame, '冀DSX888', vertices)
-        yellow_text = np.all(result[:50] == (0, 255, 255), axis=2)
-        self.assertGreater(np.count_nonzero(yellow_text), 50)
-        self.assertTrue(np.array_equal(result[193, 214], (0, 255, 0)))
+        label_region = result[145:193, 200:600]
+        yellow_label = np.all(label_region == (0, 255, 255), axis=2)
+        black_text = np.all(label_region == (0, 0, 0), axis=2)
+        self.assertGreater(np.count_nonzero(yellow_label), 100)
+        self.assertGreater(np.count_nonzero(black_text), 20)
+        self.assertTrue(np.array_equal(result[193, 214], (0, 255, 255)))
+        self.assertTrue(np.all(result[:100] == 255))
         self.assertTrue(np.all(frame == 255))
 
     def test_credentials_file_reads_expected_keys(self):
