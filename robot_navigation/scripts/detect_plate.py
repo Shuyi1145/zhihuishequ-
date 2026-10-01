@@ -23,7 +23,7 @@ PLATE_API_URL = 'https://aip.baidubce.com/rest/2.0/ocr/v1/license_plate'
 
 
 def first_plate(result):
-    """Return the first plate from the current list or older object response."""
+    """Return the first plate from either response shape observed in use."""
     plates = result.get('words_result')
     if isinstance(plates, dict):
         plates = [plates]
@@ -38,13 +38,37 @@ def first_plate(result):
     return number.strip(), plate.get('vertexes_location')
 
 
+def load_credentials_file(path):
+    """Read only the two expected keys from a simple KEY=VALUE file."""
+    credentials = {}
+    try:
+        with open(path, encoding='utf-8') as stream:
+            for line in stream:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                name, separator, value = line.partition('=')
+                if separator and name.strip() in (
+                        'BAIDU_OCR_API_KEY', 'BAIDU_OCR_SECRET_KEY'):
+                    credentials[name.strip()] = value.strip().strip('"\'')
+    except OSError:
+        raise RuntimeError('无法读取百度 OCR 配置文件') from None
+    return credentials
+
+
 class PlateRecognizer:
     def __init__(self):
         rospy.init_node('plate_recognition_service')
         self.api_key = os.environ.get('BAIDU_OCR_API_KEY', '').strip()
         self.secret_key = os.environ.get('BAIDU_OCR_SECRET_KEY', '').strip()
         if not self.api_key or not self.secret_key:
-            raise RuntimeError('请先配置 BAIDU_OCR_API_KEY 和 BAIDU_OCR_SECRET_KEY')
+            credentials_file = rospy.get_param('~credentials_file', '')
+            if credentials_file:
+                credentials = load_credentials_file(credentials_file)
+                self.api_key = self.api_key or credentials.get('BAIDU_OCR_API_KEY', '')
+                self.secret_key = self.secret_key or credentials.get('BAIDU_OCR_SECRET_KEY', '')
+        if not self.api_key or not self.secret_key:
+            raise RuntimeError('请配置百度 OCR 环境变量或凭据文件')
 
         self.bridge = CvBridge()
         self.latest_image = None

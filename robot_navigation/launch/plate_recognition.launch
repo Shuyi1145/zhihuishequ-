@@ -1,9 +1,11 @@
 <launch>
   <arg name="image_topic" default="/image_raw"/>
   <arg name="save_dir" default="$(env HOME)/smart_ws/plate_samples"/>
+  <arg name="credentials_file" default="$(find robot_navigation)/config/baidu_ocr.env"/>
   <node pkg="robot_navigation" type="detect_plate.py"
         name="plate_recognition_service" output="screen" required="true">
     <param name="image_topic" value="$(arg image_topic)"/>
     <param name="save_dir" value="$(arg save_dir)"/>
+    <param name="credentials_file" value="$(arg credentials_file)"/>
   </node>
 </launch>

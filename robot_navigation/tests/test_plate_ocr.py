@@ -3,6 +3,7 @@
 import ast
 import base64
 import pathlib
+import tempfile
 import unittest
 from urllib.parse import urlencode
 
@@ -25,6 +26,20 @@ def load_function(name, class_name=None, namespace=None):
 
 
 class PlateOcrTest(unittest.TestCase):
+    def test_credentials_file_reads_expected_keys(self):
+        load_credentials_file = load_function('load_credentials_file')
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / 'baidu_ocr.env'
+            path.write_text(
+                '# OCR test configuration\n'
+                "BAIDU_OCR_API_KEY='sample-key'\n"
+                'BAIDU_OCR_SECRET_KEY=sample-secret\n'
+                'IGNORED=value\n', encoding='utf-8')
+            self.assertEqual(load_credentials_file(path), {
+                'BAIDU_OCR_API_KEY': 'sample-key',
+                'BAIDU_OCR_SECRET_KEY': 'sample-secret',
+            })
+
     def test_baidu_response_list_and_observed_object(self):
         first_plate = load_function('first_plate')
         self.assertEqual(first_plate({'words_result': [
