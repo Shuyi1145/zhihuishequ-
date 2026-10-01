@@ -31,10 +31,11 @@ class SingleIntersectionMission:
         self.stop_settle_time = float(rospy.get_param('~stop_settle_time', 1.0))
         self.turn_prep_distance = float(rospy.get_param('~turn_prep_distance', 0.05))
         self.stop_pose = self.read_pose('stop')
-        self.cross_pose = self.read_pose('cross')
         self.two_area_enabled = rospy.get_param('~two_area_enabled', False)
         self.two_intersection_enabled = rospy.get_param('~two_intersection_enabled', False)
         self.full_mission_enabled = rospy.get_param('~full_mission_enabled', False)
+        if not self.two_intersection_enabled:
+            self.cross_pose = self.read_pose('cross')
         if self.two_area_enabled and self.two_intersection_enabled:
             raise MissionError('two_area_enabled 与 two_intersection_enabled 不能同时启用')
         if self.full_mission_enabled and not self.two_intersection_enabled:
@@ -113,7 +114,7 @@ class SingleIntersectionMission:
                 ('turn_prep_distance', self.turn_prep_distance)):
             if value <= 0:
                 raise MissionError('{} must be positive'.format(name))
-        poses = [('stop', self.stop_pose), ('cross', self.cross_pose)]
+        poses = [('stop', self.stop_pose)]
         if self.two_intersection_enabled:
             poses.extend((('first_corner', self.first_corner_pose),
                           ('next_corner', self.next_corner_pose),
@@ -129,10 +130,13 @@ class SingleIntersectionMission:
                 poses.extend(self.finish_approach_route)
                 poses.append(('finish', self.finish_pose))
         elif self.two_area_enabled:
+            poses.append(('cross', self.cross_pose))
             poses.extend((('area_a', self.area_a_pose),
                           ('area_b', self.area_b_pose),
                           ('second_corner', self.second_corner_pose),
                           ('second_stop', self.second_stop_pose)))
+        else:
+            poses.append(('cross', self.cross_pose))
         for name, pose in poses:
             if not all(math.isfinite(value) for value in pose.values()):
                 raise MissionError('{} pose contains a non-finite value'.format(name))
@@ -344,7 +348,6 @@ class SingleIntersectionMission:
 
     def run_two_intersections(self):
         for label, pose in (
-                ('第一处路口后拐点', self.first_corner_pose),
                 ('下一个拐弯点', self.next_corner_pose),
                 ('街区中间 A 街区观察点', self.area_middle_pose)):
             self.navigate(label, pose)
@@ -399,13 +402,16 @@ class SingleIntersectionMission:
         self.navigate('停止线前观察点', self.stop_pose)
         self.hold_stopped(self.stop_settle_time)
         self.wait_for_green('第一处红绿灯')
-        self.navigate('路口后目标点', self.cross_pose)
-        self.hold_stopped(self.stop_settle_time)
         if self.two_intersection_enabled:
+            self.navigate('第一处路口后拐点', self.first_corner_pose)
             self.run_two_intersections()
             if self.full_mission_enabled:
                 self.run_full_route()
-        elif self.two_area_enabled:
+            return
+
+        self.navigate('路口后目标点', self.cross_pose)
+        self.hold_stopped(self.stop_settle_time)
+        if self.two_area_enabled:
             self.navigate('A 街区人物观察点', self.area_a_pose)
             self.hold_stopped(self.stop_settle_time)
             area_a_counts = self.recognize_people('A 街区', 1)

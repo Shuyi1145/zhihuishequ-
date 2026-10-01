@@ -1,31 +1,30 @@
-# Coordinates come from CODE/路径点.md. No measured intermediate waypoint is
-# available between the second intersection and plate 1. move_base plans that
-# segment directly; inspect the RViz plan and keep a stop control ready.
+# Coordinates come from CODE/路径点.md. move_base plans directly from the second
+# intersection to plate 1; inspect the RViz plan during the first trial.
 plate_approach_route: []
 finish_approach_route:
   - label: 终点前直行点
-    x: 3.0032618045806885
-    y: 3.6526408195495605
-    qz: -0.00016621587488632652
-    qw: 0.9999999861861414
+    x: 1.0155720710754395
+    y: 0.30759310722351074
+    qz: 0.9999644309024956
+    qw: 0.008434271150969326
 
-plate_1_x: 3.2281994819641113
-plate_1_y: 0.2914993464946747
-plate_1_qz: 0.015566649734296964
-plate_1_qw: 0.9998788323672272
+plate_1_x: 0.9583792686462402
+plate_1_y: 3.828923463821411
+plate_1_qz: -0.9999161018131362
+plate_1_qw: 0.012953352261942469
 
 # The second observation is approximately 5 cm toward the third point.
-plate_2_x: 3.266586056626282
-plate_2_y: 1.0489431724920904
-plate_2_qz: -0.0072673883381453135
-plate_2_qw: 0.999973592184685
+plate_2_x: 0.9980338815610184
+plate_2_y: 3.0744924164514
+plate_2_qz: 0.9999930332715286
+plate_2_qw: 0.003732748103941958
 
-plate_3_x: 3.259136438369751
-plate_3_y: 1.6074515581130981
-plate_3_qz: 0.0042582868427292675
-plate_3_qw: 0.9999909334554814
+plate_3_x: 0.997686505317688
+plate_3_y: 2.5141005516052246
+plate_3_qz: 0.9999935330275808
+plate_3_qw: 0.003596373592497853
 
-finish_x: 3.826688051223755
-finish_y: 3.675142526626587
-finish_qz: 0.9999943740509222
-finish_qw: 0.0033543801967412176
+finish_x: 0.3444805145263672
+finish_y: 0.4257943630218506
+finish_qz: -0.00047126058490970025
+finish_qw: 0.9999998889567244

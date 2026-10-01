@@ -40,17 +40,27 @@ class RouteTest(unittest.TestCase):
         self.assertEqual(route['plate_approach_route'], [])
         self.assertEqual(len(route['finish_approach_route']), 1)
         self.assertAlmostEqual(route['finish_approach_route'][0]['x'],
-                               3.0032618045806885)
+                               1.0155720710754395)
         self.assertAlmostEqual(route['finish_approach_route'][0]['y'],
-                               3.6526408195495605)
+                               0.30759310722351074)
+        self.assertAlmostEqual(route['finish_approach_route'][0]['qz'],
+                               0.9999644309024956)
+        self.assertAlmostEqual(route['finish_approach_route'][0]['qw'],
+                               0.008434271150969326)
         for index, expected in enumerate((
-                (3.2281994819641113, 0.2914993464946747),
-                (3.266586056626282, 1.0489431724920904),
-                (3.259136438369751, 1.6074515581130981)), 1):
-            self.assertAlmostEqual(route['plate_{}_x'.format(index)], expected[0])
-            self.assertAlmostEqual(route['plate_{}_y'.format(index)], expected[1])
-        self.assertAlmostEqual(route['finish_x'], 3.826688051223755)
-        self.assertAlmostEqual(route['finish_y'], 3.675142526626587)
+                (0.9583792686462402, 3.828923463821411,
+                 -0.9999161018131362, 0.012953352261942469),
+                (0.9980338815610184, 3.0744924164514,
+                 0.9999930332715286, 0.003732748103941958),
+                (0.997686505317688, 2.5141005516052246,
+                 0.9999935330275808, 0.003596373592497853)), 1):
+            for part, value in zip(('x', 'y', 'qz', 'qw'), expected):
+                self.assertAlmostEqual(
+                    route['plate_{}_{}'.format(index, part)], value)
+        self.assertAlmostEqual(route['finish_x'], 0.3444805145263672)
+        self.assertAlmostEqual(route['finish_y'], 0.4257943630218506)
+        self.assertAlmostEqual(route['finish_qz'], -0.00047126058490970025)
+        self.assertAlmostEqual(route['finish_qw'], 0.9999998889567244)
 
         full_launch = ET.parse(FULL_LAUNCH).getroot()
         self.assertEqual(len(full_launch.findall('include')), 2)
@@ -98,7 +108,7 @@ class RouteTest(unittest.TestCase):
         self.assertEqual([event for event in events if event[0] == 'recognize'], [
             ('recognize', 'A 街区', 1), ('recognize', 'B 街区', 2)])
         self.assertEqual([event[1] for event in events if event[0] == 'navigate'], [
-            '第一处路口后拐点', '下一个拐弯点',
+            '下一个拐弯点',
             '街区中间 A 街区观察点', '原地转向 B 街区',
             '第二处路口前拐点', '第二处红绿灯停止线前', '第二处路口后面向车牌点'])
         self.assertLess(events.index(('recognize', 'A 街区', 1)),
@@ -116,7 +126,7 @@ class RouteTest(unittest.TestCase):
 
         class FakeMission:
             stop_pose = 'stop'
-            cross_pose = 'cross'
+            first_corner_pose = 'first_corner'
             stop_settle_time = 1.0
             two_intersection_enabled = True
             two_area_enabled = False
@@ -140,8 +150,34 @@ class RouteTest(unittest.TestCase):
         load_method('run')(FakeMission())
         self.assertEqual(events, [
             'server', ('navigate', '停止线前观察点'), 'hold',
-            ('green', '第一处红绿灯'), ('navigate', '路口后目标点'),
-            'hold', 'new_route'])
+            ('green', '第一处红绿灯'),
+            ('navigate', '第一处路口后拐点'), 'new_route'])
+
+    def test_single_intersection_keeps_its_cross_goal(self):
+        events = []
+
+        class FakeMission:
+            stop_pose = 'stop'
+            cross_pose = 'cross'
+            stop_settle_time = 1.0
+            two_intersection_enabled = False
+            two_area_enabled = False
+
+            def wait_for_action_server(self):
+                pass
+
+            def navigate(self, label, pose):
+                events.append((label, pose))
+
+            def hold_stopped(self, duration):
+                pass
+
+            def wait_for_green(self, label):
+                pass
+
+        load_method('run')(FakeMission())
+        self.assertEqual(events, [('停止线前观察点', 'stop'),
+                                  ('路口后目标点', 'cross')])
 
     def test_full_route_visits_each_plate_and_finishes(self):
         events = []
@@ -345,7 +381,7 @@ class RouteTest(unittest.TestCase):
             for part, expected in zip(('x', 'y', 'qz', 'qw'), pose):
                 self.assertAlmostEqual(float(args[name + '_' + part]), expected)
         self.assertFalse(any(name.startswith(('turn_after_first_', 'area_a_',
-                                              'area_b_')) for name in args))
+                                              'area_b_', 'cross_')) for name in args))
 
     def test_next_corner_shift_is_forward_and_left_of_approach(self):
         first = (3.824002265930176, 0.5524806976318359)

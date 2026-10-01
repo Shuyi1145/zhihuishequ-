@@ -1,13 +1,9 @@
 <launch>
-  <!-- 第一处路口使用已实测的单路口坐标。 -->
+  <!-- 第一处停止线沿用单路口实测坐标，绿灯后直接驶向第一拐点。 -->
   <arg name="stop_x" default="1.5856393575668335"/>
   <arg name="stop_y" default="0.5012828707695007"/>
   <arg name="stop_qz" default="-0.017359118678415685"/>
   <arg name="stop_qw" default="0.9998493191469946"/>
-  <arg name="cross_x" default="2.9678547382354736"/>
-  <arg name="cross_y" default="0.43797147274017334"/>
-  <arg name="cross_qz" default="-0.004938376552505628"/>
-  <arg name="cross_qw" default="0.9999878061441678"/>
 
   <!-- 其余点位来自 2026-10-01 的 code/路径点.md；A/B 观察点以 TF 实测值为基准，向图下移 0.10 米、图右移 0.20 米试调。 -->
   <arg name="first_corner_x" default="3.824002265930176"/>
@@ -56,10 +52,6 @@
     <param name="stop_y" value="$(arg stop_y)"/>
     <param name="stop_qz" value="$(arg stop_qz)"/>
     <param name="stop_qw" value="$(arg stop_qw)"/>
-    <param name="cross_x" value="$(arg cross_x)"/>
-    <param name="cross_y" value="$(arg cross_y)"/>
-    <param name="cross_qz" value="$(arg cross_qz)"/>
-    <param name="cross_qw" value="$(arg cross_qw)"/>
     <param name="first_corner_x" value="$(arg first_corner_x)"/>
     <param name="first_corner_y" value="$(arg first_corner_y)"/>
     <param name="first_corner_qz" value="$(arg first_corner_qz)"/>

@@ -12,7 +12,7 @@ source ~/smart_ws/devel/setup.bash
 roslaunch --screen robot_navigation full_competition_mission.launch
 ```
 
-完整入口会同时启动车牌 OCR 服务；若已单独运行 `plate_recognition.launch`，先关闭该服务，避免同名节点冲突。第二路口后点到车牌 1 暂无实测中间拐点，程序交由 `move_base` 直接规划。这两点在同一地图中相距约 3.73 m，首次试跑须看 RViz 全局路径是否沿指定车道、车身是否压线。完整路线尚未在虚拟机整圈验证；若规划线穿街区，应在 `robot_navigation/config/full_route.yaml` 的 `plate_approach_route` 补实测拐点后再跑。车牌识别失败会终止任务并停车。A/B 仍分开统计，尚无可靠的跨视野去重依据。
+完整入口会同时启动车牌 OCR 服务；若已单独运行 `plate_recognition.launch`，先关闭该服务，避免同名节点冲突。第二路口后点到新车牌 1 相距约 1.19 m，由 `move_base` 直接规划；首次试跑须看 RViz 全局路径是否沿指定车道、车身是否压线。完整路线尚未在虚拟机整圈验证。车牌识别失败会终止任务并停车。A/B 仍分开统计，尚无可靠的跨视野去重依据。
 
 详细状态见[复赛进度](docs/智慧社区复赛完赛规划.md)。
 
@@ -79,7 +79,7 @@ roslaunch robot_navigation single_intersection_mission.launch two_area_enabled:=
 
 ## 当前调试路线：通过第二处路口后面向车牌停车
 
-`robot_navigation/launch/two_intersection_mission.launch` 使用最新[路径点记录](docs/路径点.md)中的路线。第一处停车与过路口点沿用已测单路口任务。其余顺序为：第一处路口后拐点 → 下一拐点 → 街区中间面向 A 识别 → 沿实际车头方向前进约 5 厘米 → 在新位置转向 180° 面向 B 识别 → 第二处路口前拐点 → 停止线前等绿灯 → 第二处路口后面向车牌停车。A/B 各调用一次 `/recognize_person`；两处灯调用 `/traffic_light/reset` 和 `/traffic_light/check`。本阶段不执行车牌识别或返程。原来的 `single_intersection_mission.launch` 不受影响。
+`robot_navigation/launch/two_intersection_mission.launch` 使用最新[路径点记录](docs/路径点.md)中的路线。第一处停止线沿用已测单路口任务；绿灯后直接以第一处路口后拐点为目标，不再经单路口的“路口后目标点”停车。其余顺序为：下一拐点 → 街区中间面向 A 识别 → 沿实际车头方向前进约 5 厘米 → 在新位置转向 180° 面向 B 识别 → 第二处路口前拐点 → 停止线前等绿灯 → 第二处路口后面向车牌停车。A/B 各调用一次 `/recognize_person`；两处灯调用 `/traffic_light/reset` 和 `/traffic_light/check`。本阶段不执行车牌识别或返程。原来的 `single_intersection_mission.launch` 不受影响。
 
 在 Gazebo、`navigation.launch simulation:=true`、红绿灯节点和 YOLO/人物识别服务运行后，启动：
 
