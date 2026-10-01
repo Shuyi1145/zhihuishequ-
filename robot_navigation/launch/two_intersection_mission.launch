@@ -14,8 +14,9 @@
   <arg name="first_corner_y" default="0.5524806976318359"/>
   <arg name="first_corner_qz" default="0.7105965273343292"/>
   <arg name="first_corner_qw" default="0.7035997266488895"/>
-  <arg name="next_corner_x" default="3.624973773956299"/>
-  <arg name="next_corner_y" default="1.540183663368225"/>
+  <!-- 沿第一拐点到此点的行驶方向再前进约 5 cm，向行驶方向左侧约 5 cm。 -->
+  <arg name="next_corner_x" default="3.566"/>
+  <arg name="next_corner_y" default="1.579"/>
   <arg name="next_corner_qz" default="-0.9999627453743581"/>
   <arg name="next_corner_qw" default="0.008631793751969744"/>
   <arg name="area_middle_x" default="2.900"/>
