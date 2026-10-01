@@ -27,6 +27,8 @@
 
 
     <node pkg="yolo_ros" name="detect_ros" type="detect_ros.py" output="screen">
+        <!-- The bundled Ultralytics source is not installed into ROS Python's site-packages. -->
+        <env name="PYTHONPATH" value="$(find yolo_ros)/src/ultralytics:$(optenv PYTHONPATH)" />
         <param name="weights" value="$(arg weights)" />
         <param name="confidence_threshold" value="$(arg confidence_threshold)" />
         <param name="iou_threshold" value="$(arg iou_threshold)" />

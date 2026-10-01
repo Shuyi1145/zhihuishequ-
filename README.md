@@ -79,3 +79,5 @@ bash tools/start_two_intersection.sh
 ```
 
 脚本按顺序启动 Gazebo/小车、导航/RViz、红绿灯识别、人物 v4 识别和两路口任务，并等待关键话题、服务与定位变换就绪。它使用仓库新增的 `map_portable.yaml` 与 `person_v4.pt`，以及虚拟机现有的比赛场景。任务结束后仿真保持打开，按 `Ctrl+C` 关闭。参见[一键启动说明](docs/一键启动说明.md)。仓库当前的 `competition.world` 仍是旧场景；脚本在检测到缺少灯或人物立牌时会拒绝发车，完整场景资源尚需另行归档到 Git。
+
+人物节点若报 `ModuleNotFoundError: No module named 'ultralytics'`，先更新到包含修复的提交。`yolo_ros/launch/yolo.launch` 现会把仓库自带的 `yolo_ros/src/ultralytics` 加入该节点的 `PYTHONPATH`。这只解决源码搜索路径；若随后报 Torch 等依赖缺失，须在 ROS 实际使用的 Python 环境中单独检查。
