@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<!--
+  整面图片序列模型：VisualPlugin 按仿真时间选帧，红 10 秒、黄 5 秒、绿 15 秒。
+  GUI 和机器人相机使用相同仿真时间，原生纹理自动计时关闭。
+-->
+<sdf version="1.5">
+  <model name="traffic_light_animated">
+    <static>false</static>
+    <link name="body">
+      <gravity>false</gravity>
+      <kinematic>true</kinematic>
+      <visual name="housing">
+        <pose>0 0 0.41 0 0 0</pose>
+        <geometry><box><size>0.59 0.05 0.14</size></box></geometry>
+        <material>
+          <ambient>0.07 0.08 0.09 1</ambient>
+          <diffuse>0.11 0.12 0.13 1</diffuse>
+        </material>
+      </visual>
+      <collision name="housing_collision">
+        <pose>0 0 0.41 0 0 0</pose>
+        <geometry><box><size>0.59 0.05 0.14</size></box></geometry>
+      </collision>
+      <visual name="left_leg">
+        <pose>-0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+        <material>
+          <ambient>0.07 0.08 0.09 1</ambient>
+          <diffuse>0.11 0.12 0.13 1</diffuse>
+        </material>
+      </visual>
+      <collision name="left_leg_collision">
+        <pose>-0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+      </collision>
+      <visual name="right_leg">
+        <pose>0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+        <material>
+          <ambient>0.07 0.08 0.09 1</ambient>
+          <diffuse>0.11 0.12 0.13 1</diffuse>
+        </material>
+      </visual>
+      <collision name="right_leg_collision">
+        <pose>0.3075 0 0.24 0 0 0</pose>
+        <geometry><box><size>0.025 0.025 0.48</size></box></geometry>
+      </collision>
+
+      <visual name="animated_face">
+        <pose>0 -0.026 0.41 1.57079632679 0 0</pose>
+        <geometry><plane><normal>0 0 1</normal><size>0.59 0.14</size></plane></geometry>
+        <material><script>
+          <uri>model://traffic_light_animated/materials/scripts</uri>
+          <uri>model://traffic_light_animated/materials/textures</uri>
+          <name>TrafficLightAnimated/FaceRYGSimTime</name>
+        </script></material>
+        <cast_shadows>false</cast_shadows>
+        <plugin name="traffic_light_animation" filename="libtraffic_light_animation.so"/>
+      </visual>
+    </link>
+  </model>
+</sdf>

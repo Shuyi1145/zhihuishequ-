@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sdf version="1.5"><model name="placard_fire"><static>true</static><link name="link"><visual name="visual"><geometry><mesh><uri>model://placard_fire/meshes/placard_fire.dae</uri></mesh></geometry><material><script><uri>model://placard_fire/materials/scripts</uri><uri>model://placard_fire/materials/textures</uri><name>PlacardFire</name></script></material></visual><collision name="collision"><geometry><box><size>0.1615 0.005 0.2</size></box></geometry><pose>0 0 0.1 0 0 0</pose></collision></link></model></sdf>

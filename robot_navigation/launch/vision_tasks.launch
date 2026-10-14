@@ -1,0 +1,47 @@
+<launch>
+  <!-- 所有视觉节点共享同一个相机图像话题。 -->
+  <arg name="image_topic" default="/image_raw"/>
+
+  <!-- 红绿灯识别：发布状态话题，同时提供 /recognize_traffic_light service。 -->
+  <arg name="traffic_state_topic" default="/traffic_light/state"/>
+  <arg name="traffic_debug_image_topic" default="/traffic_light/debug_image"/>
+  <arg name="traffic_publish_debug" default="true"/>
+  <arg name="traffic_roi" default="[0.0, 0.0, 1.0, 1.0]"/>
+  <include file="$(find robot_navigation)/launch/traffic_light_detector.launch">
+    <arg name="image_topic" value="$(arg image_topic)"/>
+    <arg name="state_topic" value="$(arg traffic_state_topic)"/>
+    <arg name="debug_image_topic" value="$(arg traffic_debug_image_topic)"/>
+    <arg name="publish_debug" value="$(arg traffic_publish_debug)"/>
+    <arg name="roi" value="$(arg traffic_roi)"/>
+  </include>
+
+  <!-- 车牌识别：提供 /recognize_plate service。 -->
+
+  <node pkg="robot_navigation" type="detect_plate.py"
+        name="plate_recognition_service" output="screen">
+    <param name="image_topic" value="$(arg image_topic)"/>
+  </node>
+
+  <!-- 行人识别：提供 /recognize_person service。 -->
+  <arg name="person_weights" default="$(find yolo_ros)/weights/best.pt"/>
+  <arg name="person_confidence_threshold" default="0.35"/>
+  <arg name="person_iou_threshold" default="0.45"/>
+  <arg name="person_maximum_detections" default="1000"/>
+  <arg name="person_device" default="cpu"/>
+  <arg name="person_view_image" default="false"/>
+  <arg name="person_publish_image" default="true"/>
+  <arg name="person_output_topic" default="/yolo/detections"/>
+  <arg name="person_output_image_topic" default="/yolo/image_out"/>
+  <include file="$(find yolo_ros)/launch/yolo.launch">
+    <arg name="weights" value="$(arg person_weights)"/>
+    <arg name="confidence_threshold" value="$(arg person_confidence_threshold)"/>
+    <arg name="iou_threshold" value="$(arg person_iou_threshold)"/>
+    <arg name="maximum_detections" value="$(arg person_maximum_detections)"/>
+    <arg name="device" value="$(arg person_device)"/>
+    <arg name="input_image_topic" value="$(arg image_topic)"/>
+    <arg name="output_topic" value="$(arg person_output_topic)"/>
+    <arg name="view_image" value="$(arg person_view_image)"/>
+    <arg name="publish_image" value="$(arg person_publish_image)"/>
+    <arg name="output_image_topic" value="$(arg person_output_image_topic)"/>
+  </include>
+</launch>

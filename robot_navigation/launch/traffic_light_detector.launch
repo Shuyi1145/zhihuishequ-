@@ -1,0 +1,16 @@
+<launch>
+  <arg name="image_topic" default="/image_raw"/>
+  <arg name="state_topic" default="/traffic_light/state"/>
+  <arg name="debug_image_topic" default="/traffic_light/debug_image"/>
+  <arg name="publish_debug" default="true"/>
+  <arg name="roi" default="[0.0, 0.0, 1.0, 1.0]"/>
+
+  <node pkg="robot_navigation" type="traffic_light_detector.py"
+        name="traffic_light_detector" output="screen">
+    <param name="image_topic" value="$(arg image_topic)"/>
+    <param name="state_topic" value="$(arg state_topic)"/>
+    <param name="debug_image_topic" value="$(arg debug_image_topic)"/>
+    <param name="publish_debug" value="$(arg publish_debug)"/>
+    <param name="roi" value="$(arg roi)" type="yaml"/>
+  </node>
+</launch>

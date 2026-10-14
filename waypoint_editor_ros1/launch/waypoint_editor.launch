@@ -1,0 +1,24 @@
+<launch>
+  <arg name="map_yaml" default="$(find robot_navigation)/map/map.yaml"/>
+  <arg name="rviz_config" default="$(find waypoint_editor)/rviz/rviz_waypoint_editor.rviz"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="start_map_server" default="true"/>
+
+  <!--
+    Standalone defaults keep the current editor workflow.
+    For composition with robot_navigation, launch robot_navigation/navigation.launch open_rviz:=false
+    and set this launch to open_rviz:=true start_map_server:=false so RViz and map_server stay single-owned.
+    In that composed mode the panel's Load 2D Map action is disabled to avoid replacing the navigation-owned map_server.
+  -->
+  <group ns="waypoint_editor">
+    <param name="panel_can_manage_map_server" value="$(arg start_map_server)"/>
+  </group>
+
+  <group if="$(arg start_map_server)">
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_yaml)" output="screen"/>
+  </group>
+
+  <group if="$(arg open_rviz)">
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_config)" output="screen"/>
+  </group>
+</launch>

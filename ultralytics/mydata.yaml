@@ -1,0 +1,7 @@
+path: /home/shuiy/catkin_ws/src/ultralytics/datasets/mydata
+train: train/images
+val: val/images
+test: test/images
+names:
+  0: community
+  1: non-community

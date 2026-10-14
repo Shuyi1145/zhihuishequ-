@@ -1,0 +1,30 @@
+{
+  "source": "D:\\GPTProject\\ros2\\zhihuishequ\\code\\虚拟机代码\\catkin_ws\\src\\yolo_ros\\weights\\best.pt",
+  "source_sha256": "a138dd16cca11e4d5e3e5ce0c19a11609f6c55d0b635ae405ec269d9042d41ca",
+  "weights": {
+    "best.pt": {
+      "sha256": "5102387b76aa20a23347a7a7cfbb2db5efa34e952a6dfbb14a06ba3de28330ae",
+      "changed_parameter_tensors": 365,
+      "total_parameter_tensors": 366,
+      "changed_parameter_values": 2462073,
+      "total_parameter_values": 2504580,
+      "max_absolute_difference": 0.01318359375,
+      "names": {
+        "0": "community",
+        "1": "non-community"
+      }
+    },
+    "last.pt": {
+      "sha256": "915fac4c9b0847934a8b6c273c11a546a7814d63d5326a147e0c1348666ea60f",
+      "changed_parameter_tensors": 365,
+      "total_parameter_tensors": 366,
+      "changed_parameter_values": 2471269,
+      "total_parameter_values": 2504580,
+      "max_absolute_difference": 0.0166015625,
+      "names": {
+        "0": "community",
+        "1": "non-community"
+      }
+    }
+  }
+}
